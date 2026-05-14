@@ -71,3 +71,8 @@
 - [x] Restringir itens de menu da sidebar: cadastros e administração visíveis apenas para admin
 - [x] Botão "Novo Chamado" em destaque na sidebar (visível para todos os perfis)
 - [x] Favicon de engrenagem verde
+
+## Identidade Visual v3
+- [x] Upload do logo Parcred e geração de favicon com a marca
+- [x] Aplicar logo na tela de login
+- [x] Aplicar logo na sidebar

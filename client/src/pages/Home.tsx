@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Home() {
@@ -51,9 +51,11 @@ export default function Home() {
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4">
       {/* Logo e título */}
       <div className="flex flex-col items-center mb-8 select-none">
-        <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg mb-4">
-          <ShieldCheck className="h-9 w-9 text-white" />
-        </div>
+        <img
+          src="/manus-storage/parcred-logo_c55658d2.png"
+          alt="Parcred"
+          className="h-20 w-auto mb-4 drop-shadow-md"
+        />
         <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Parcred Help Desk</h1>
         <p className="text-gray-500 mt-1 text-sm">Grupo Angar · Suporte aos Correspondentes</p>
       </div>

@@ -36,9 +36,6 @@ import {
   LogOut,
   PanelLeft,
   PlusCircle,
-  Settings,
-  Shield,
-  ShieldCheck,
   Timer,
   Users,
 } from "lucide-react";
@@ -105,9 +102,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[oklch(0.14_0.07_150)] to-[oklch(0.28_0.12_150)]">
         <div className="bg-white rounded-2xl shadow-2xl p-10 max-w-md w-full mx-4 flex flex-col items-center gap-6">
           <div className="flex flex-col items-center gap-2">
-            <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-2">
-              <ShieldCheck className="w-8 h-8 text-white" />
-            </div>
+            <img
+              src="/manus-storage/parcred-logo_c55658d2.png"
+              alt="Parcred"
+              className="h-16 w-auto mb-2 drop-shadow-md"
+            />
             <h1 className="text-2xl font-bold text-foreground tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
               Parcred Help Desk
             </h1>
@@ -214,13 +213,21 @@ function DashboardLayoutContent({
               >
                 <PanelLeft className="h-4 w-4 text-sidebar-foreground/70" />
               </button>
-              {!isCollapsed && (
-                <div className="flex flex-col min-w-0">
-                  <span className="font-bold text-sidebar-foreground text-sm tracking-wide" style={{ fontFamily: "var(--font-display)" }}>
-                    Parcred
-                  </span>
-                  <span className="text-xs text-sidebar-foreground/50 truncate">Help Desk</span>
+              {!isCollapsed ? (
+                <div className="flex items-center gap-2 min-w-0">
+                  <img
+                    src="/manus-storage/parcred-logo_c55658d2.png"
+                    alt="Parcred"
+                    className="h-8 w-auto brightness-0 invert"
+                  />
+                  <span className="text-xs text-sidebar-foreground/50 truncate font-medium">Help Desk</span>
                 </div>
+              ) : (
+                <img
+                  src="/manus-storage/parcred-logo_c55658d2.png"
+                  alt="Parcred"
+                  className="h-6 w-auto brightness-0 invert"
+                />
               )}
             </div>
           </SidebarHeader>
