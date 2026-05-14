@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -121,6 +121,14 @@ export default function Home() {
                 "Entrar no sistema"
               )}
             </Button>
+
+            <div className="text-center mt-2">
+              <Link href="/forgot-password">
+                <button type="button" className="text-sm text-primary hover:underline">
+                  Esqueci minha senha
+                </button>
+              </Link>
+            </div>
           </form>
         </CardContent>
       </Card>

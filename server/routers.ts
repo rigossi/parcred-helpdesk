@@ -40,6 +40,11 @@ import {
   getUserByEmail,
   updateUserLastSignedIn,
   createUser,
+  updateUserPassword,
+  createPasswordResetToken,
+  getPasswordResetToken,
+  markPasswordResetTokenUsed,
+  getUserById,
 } from "./db";
 
 // ─── Middleware helpers ───────────────────────────────────────────────────────
@@ -101,6 +106,59 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+
+    // Alterar própria senha (usuário autenticado)
+    changePassword: protectedProcedure
+      .input(z.object({
+        currentPassword: z.string().min(1),
+        newPassword: z.string().min(6),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const user = await getUserById(ctx.user.id);
+        if (!user) throw new TRPCError({ code: "NOT_FOUND" });
+        const valid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+        if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "Senha atual incorreta." });
+        const newHash = await bcrypt.hash(input.newPassword, 12);
+        await updateUserPassword(user.id, newHash);
+        return { success: true };
+      }),
+
+    // Solicitar recuperação de senha por e-mail
+    requestPasswordReset: publicProcedure
+      .input(z.object({ email: z.string().email() }))
+      .mutation(async ({ input }) => {
+        const user = await getUserByEmail(input.email);
+        // Resposta genérica para não revelar se o e-mail existe
+        if (!user || !user.active) return { success: true };
+        const { nanoid } = await import("nanoid");
+        const token = nanoid(48);
+        await createPasswordResetToken(user.id, token);
+        // Notificação interna com o token (em produção, enviar por e-mail)
+        await import("./_core/notification").then(({ notifyOwner }) =>
+          notifyOwner({
+            title: "Recuperação de senha solicitada",
+            content: `O usuário ${user.email} solicitou recuperação de senha.\nToken: ${token}\nVálido por 2 horas.`,
+          })
+        );
+        return { success: true };
+      }),
+
+    // Redefinir senha com token
+    resetPassword: publicProcedure
+      .input(z.object({
+        token: z.string().min(1),
+        newPassword: z.string().min(6),
+      }))
+      .mutation(async ({ input }) => {
+        const record = await getPasswordResetToken(input.token);
+        if (!record) throw new TRPCError({ code: "BAD_REQUEST", message: "Token inválido ou expirado." });
+        if (record.usedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "Este token já foi utilizado." });
+        if (new Date() > record.expiresAt) throw new TRPCError({ code: "BAD_REQUEST", message: "Token expirado. Solicite um novo link." });
+        const newHash = await bcrypt.hash(input.newPassword, 12);
+        await updateUserPassword(record.userId, newHash);
+        await markPasswordResetTokenUsed(record.id);
+        return { success: true };
+      }),
   }),
 
   // ─── Departments ────────────────────────────────────────────────────────────

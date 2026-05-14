@@ -4,6 +4,7 @@ import {
   correspondents,
   departments,
   notifications,
+  passwordResetTokens,
   slaPolicies,
   ticketAttachments,
   ticketMessages,
@@ -88,6 +89,36 @@ export async function updateUserRole(userId: number, role: "user" | "admin" | "a
   const db = await getDb();
   if (!db) return;
   await db.update(users).set({ role }).where(eq(users.id, userId));
+}
+
+export async function updateUserPassword(userId: number, passwordHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+}
+
+// ─── Password Reset Tokens ────────────────────────────────────────────────────────────────────────────────
+
+export async function createPasswordResetToken(userId: number, token: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // Invalidar tokens anteriores do usuário
+  await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
+  const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 horas
+  await db.insert(passwordResetTokens).values({ userId, token, expiresAt });
+}
+
+export async function getPasswordResetToken(token: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token)).limit(1);
+  return result[0] ?? undefined;
+}
+
+export async function markPasswordResetTokenUsed(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, id));
 }
 
 // ─── Departments ──────────────────────────────────────────────────────────────

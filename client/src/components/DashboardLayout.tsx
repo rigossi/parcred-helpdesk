@@ -32,6 +32,7 @@ import {
   ChevronDown,
   ClipboardList,
   Gauge,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   PanelLeft,
@@ -40,6 +41,10 @@ import {
   Users,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
@@ -154,6 +159,26 @@ function DashboardLayoutContent({
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+
+  // Modal de alterar senha
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [cpCurrent, setCpCurrent] = useState("");
+  const [cpNew, setCpNew] = useState("");
+  const [cpConfirm, setCpConfirm] = useState("");
+  const changePasswordMutation = trpc.auth.changePassword.useMutation({
+    onSuccess: () => {
+      toast.success("Senha alterada com sucesso!");
+      setShowChangePassword(false);
+      setCpCurrent(""); setCpNew(""); setCpConfirm("");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const handleChangePassword = () => {
+    if (cpNew !== cpConfirm) { toast.error("As senhas não conferem."); return; }
+    if (cpNew.length < 6) { toast.error("A nova senha deve ter ao menos 6 caracteres."); return; }
+    changePasswordMutation.mutate({ currentPassword: cpCurrent, newPassword: cpNew });
+  };
 
   const role = user?.role ?? "user";
   const menuItems = getMenuItems(role);
@@ -317,6 +342,10 @@ function DashboardLayoutContent({
                     </Badge>
                   )}
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowChangePassword(true)} className="cursor-pointer">
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  <span>Alterar senha</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
@@ -380,6 +409,38 @@ function DashboardLayoutContent({
 
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </SidebarInset>
+
+      {/* Modal: Alterar Senha */}
+      <Dialog open={showChangePassword} onOpenChange={(open) => { setShowChangePassword(open); if (!open) { setCpCurrent(""); setCpNew(""); setCpConfirm(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-primary" />
+              Alterar Senha
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="cp-current">Senha atual</Label>
+              <Input id="cp-current" type="password" value={cpCurrent} onChange={(e) => setCpCurrent(e.target.value)} placeholder="Digite sua senha atual" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cp-new">Nova senha</Label>
+              <Input id="cp-new" type="password" value={cpNew} onChange={(e) => setCpNew(e.target.value)} placeholder="Mínimo 6 caracteres" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cp-confirm">Confirmar nova senha</Label>
+              <Input id="cp-confirm" type="password" value={cpConfirm} onChange={(e) => setCpConfirm(e.target.value)} placeholder="Repita a nova senha" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowChangePassword(false)}>Cancelar</Button>
+            <Button onClick={handleChangePassword} disabled={changePasswordMutation.isPending}>
+              {changePasswordMutation.isPending ? "Salvando..." : "Salvar senha"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -14,11 +14,15 @@ import Departments from "./pages/Departments";
 import SlaManagement from "./pages/SlaManagement";
 import UsersManagement from "./pages/UsersManagement";
 import Notifications from "./pages/Notifications";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/tickets" component={TicketsList} />
       <Route path="/tickets/new" component={NewTicket} />

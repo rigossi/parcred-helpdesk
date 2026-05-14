@@ -82,3 +82,11 @@
 - [x] Adicionar campos e-mail e senha no cadastro de correspondente para criar usuário automaticamente
 - [x] Backend: ao criar correspondente, criar usuário com perfil "correspondent" e vincular
 - [x] Backend: ao editar correspondente, permitir redefinir senha do usuário vinculado
+
+## Senha e Recuperação de Acesso
+- [x] Backend: endpoint changePassword (usuário autenticado altera a própria senha)
+- [x] Backend: tabela password_reset_tokens e endpoints requestPasswordReset + resetPassword
+- [x] Backend: envio de e-mail com token de recuperação (notificação via sistema)
+- [x] Frontend: modal "Alterar minha senha" no menu do perfil (sidebar footer)
+- [x] Frontend: tela /forgot-password com formulário de e-mail
+- [x] Frontend: tela /reset-password?token=... com formulário de nova senha
