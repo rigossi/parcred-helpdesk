@@ -100,3 +100,6 @@
 
 ## Bug Fix
 - [x] Responsável não exibe o nome do agente atribuído na tela de detalhe do chamado
+
+## Bug Fix v2
+- [x] Histórico de mensagens exibe "Usuário #XXXXXX" em vez do nome real do usuário1rio

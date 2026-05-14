@@ -171,7 +171,7 @@ export default function TicketDetail() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium">Usuário #{msg.userId}</span>
+                          <span className="text-sm font-medium">{(msg as any).userName ?? `Usuário #${msg.userId}`}</span>
                           {msg.isInternal && (
                             <span className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
                               <Lock className="h-3 w-3" /> Nota interna

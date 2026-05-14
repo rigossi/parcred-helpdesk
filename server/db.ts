@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   correspondents,
@@ -351,14 +351,26 @@ export async function getTicketMessages(ticketId: number, includeInternal = fals
   const db = await getDb();
   if (!db) return [];
 
-  if (includeInternal) {
-    return db.select().from(ticketMessages).where(eq(ticketMessages.ticketId, ticketId)).orderBy(ticketMessages.createdAt);
-  }
-  return db
-    .select()
-    .from(ticketMessages)
-    .where(and(eq(ticketMessages.ticketId, ticketId), eq(ticketMessages.isInternal, false)))
-    .orderBy(ticketMessages.createdAt);
+  const rows = includeInternal
+    ? await db.select().from(ticketMessages).where(eq(ticketMessages.ticketId, ticketId)).orderBy(ticketMessages.createdAt)
+    : await db
+        .select()
+        .from(ticketMessages)
+        .where(and(eq(ticketMessages.ticketId, ticketId), eq(ticketMessages.isInternal, false)))
+        .orderBy(ticketMessages.createdAt);
+
+  // Enriquecer com nome do usuário
+  const userIds = Array.from(new Set(rows.map((r) => r.userId).filter(Boolean))) as number[];
+  const userList = userIds.length > 0
+    ? await db.select({ id: users.id, name: users.name, email: users.email, role: users.role }).from(users).where(inArray(users.id, userIds))
+    : [];
+  const userMap = new Map(userList.map((u) => [u.id, u]));
+
+  return rows.map((msg) => ({
+    ...msg,
+    userName: userMap.get(msg.userId!)?.name ?? userMap.get(msg.userId!)?.email ?? `Usuário #${msg.userId}`,
+    userRole: userMap.get(msg.userId!)?.role ?? null,
+  }));
 }
 
 export async function createTicketMessage(data: InsertTicketMessage) {
