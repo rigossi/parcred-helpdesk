@@ -59,6 +59,7 @@ export default function TicketDetail() {
   const [isInternal, setIsInternal] = useState(false);
   const [newStatus, setNewStatus] = useState("");
   const [assignTo, setAssignTo] = useState("");
+  const [newPriority, setNewPriority] = useState("");
 
   const sendMessageMut = trpc.ticketMessages.create.useMutation({
     onSuccess: () => { setMessage(""); refetchMessages(); toast.success("Mensagem enviada."); },
@@ -324,6 +325,35 @@ export default function TicketDetail() {
                         className="h-8 px-2"
                         disabled={!newStatus || updateTicketMut.isPending}
                         onClick={() => updateTicketMut.mutate({ id: ticketId, status: newStatus as any })}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Definir prioridade</Label>
+                    <div className="flex gap-2">
+                      <Select value={newPriority} onValueChange={setNewPriority}>
+                        <SelectTrigger className="flex-1 h-8 text-xs">
+                          <SelectValue placeholder={PRIORITY_LABELS[ticket.priority] ?? "Selecione"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Baixa</SelectItem>
+                          <SelectItem value="medium">Média</SelectItem>
+                          <SelectItem value="high">Alta</SelectItem>
+                          <SelectItem value="critical">Crítica</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2"
+                        disabled={!newPriority || updateTicketMut.isPending}
+                        onClick={() => {
+                          updateTicketMut.mutate({ id: ticketId, priority: newPriority as any });
+                          setNewPriority("");
+                        }}
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" />
                       </Button>

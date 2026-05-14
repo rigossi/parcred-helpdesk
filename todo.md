@@ -90,3 +90,10 @@
 - [x] Frontend: modal "Alterar minha senha" no menu do perfil (sidebar footer)
 - [x] Frontend: tela /forgot-password com formulário de e-mail
 - [x] Frontend: tela /reset-password?token=... com formulário de nova senha
+
+## Abertura de Chamado v2
+- [x] Remover campo "tipo de chamado" do formulário de abertura
+- [x] Remover campo "prioridade" do formulário de abertura (definida pelo agente)
+- [x] Tornar tipo e prioridade opcionais/com valor padrão no backend
+- [x] Adicionar upload de anexos opcional no formulário de abertura
+- [x] Garantir que agente/admin possa definir prioridade na tela de detalhe do chamado

@@ -353,19 +353,35 @@ export const appRouter = router({
           departmentId: z.number(),
           title: z.string().min(5),
           description: z.string().min(10),
-          ticketType: z.enum(["technical", "commercial", "financial"]),
-          priority: z.enum(["low", "medium", "high", "critical"]),
+          // tipo e prioridade definidos pelo agente após abertura
+          ticketType: z.enum(["technical", "commercial", "financial"]).optional(),
+          priority: z.enum(["low", "medium", "high", "critical"]).optional(),
+          // anexos opcionais enviados na abertura
+          attachments: z.array(z.object({
+            fileName: z.string(),
+            fileKey: z.string(),
+            fileUrl: z.string(),
+            mimeType: z.string().optional(),
+            fileSize: z.number().optional(),
+          })).optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const sla = await getSlaPolicyByDeptAndType(input.departmentId, input.ticketType, input.priority);
+        const { attachments, ...ticketData } = input;
         const ticket = await createTicket({
-          ...input,
+          ...ticketData,
+          ticketType: ticketData.ticketType ?? "technical",
+          priority: ticketData.priority ?? "medium",
           openedByUserId: ctx.user.id,
-          slaPolicyId: sla?.id,
           status: "open",
         });
         if (!ticket) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        // Salvar anexos se enviados
+        if (attachments && attachments.length > 0) {
+          for (const att of attachments) {
+            await createTicketAttachment({ ...att, ticketId: ticket.id, uploadedByUserId: ctx.user.id });
+          }
+        }
         const allUsers = await getAllUsers();
         const staffIds = allUsers.filter((u: { role: string; id: number }) => u.role === "admin" || u.role === "agent").map((u: { id: number }) => u.id);
         await notifyTicketEvent(staffIds, ticket.id, "ticket_opened", `Novo chamado: ${ticket.ticketNumber}`, `${ctx.user.name ?? "Correspondente"} abriu o chamado "${input.title}"`);

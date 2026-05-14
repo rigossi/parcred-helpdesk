@@ -36,6 +36,13 @@ export async function createSessionToken(userId: number): Promise<string> {
     .sign(secret);
 }
 
+// Alias exportado para uso externo (ex: rota de upload)
+export async function verifySessionToken(token: string) {
+  const payload = await verifySession(token);
+  if (!payload) return null;
+  return getUserById(payload.userId);
+}
+
 export async function createContext({ req, res }: { req: Request; res: Response }): Promise<TrpcContext> {
   let user: TrpcContext["user"] = null;
 
