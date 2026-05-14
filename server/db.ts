@@ -275,7 +275,29 @@ export async function getTicketById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1);
-  return result[0] ?? undefined;
+  const ticket = result[0];
+  if (!ticket) return undefined;
+
+  // Enriquecer com dados do responsável, correspondente e departamento
+  const [assignedUser, correspondent, department] = await Promise.all([
+    ticket.assignedToUserId ? getUserById(ticket.assignedToUserId) : Promise.resolve(undefined),
+    ticket.correspondentId
+      ? db.select().from(correspondents).where(eq(correspondents.id, ticket.correspondentId)).limit(1).then(r => r[0])
+      : Promise.resolve(undefined),
+    ticket.departmentId
+      ? db.select().from(departments).where(eq(departments.id, ticket.departmentId)).limit(1).then(r => r[0])
+      : Promise.resolve(undefined),
+  ]);
+
+  return {
+    ...ticket,
+    assignedUserName: assignedUser?.name ?? null,
+    assignedUserEmail: assignedUser?.email ?? null,
+    correspondentName: correspondent?.name ?? null,
+    correspondentEmail: correspondent?.email ?? null,
+    correspondentPhone: correspondent?.phone ?? null,
+    departmentName: department?.name ?? null,
+  };
 }
 
 export async function getTicketStats() {

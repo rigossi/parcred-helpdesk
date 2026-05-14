@@ -90,8 +90,12 @@ export default function TicketDetail() {
   const getDeptName = (id: number) => (departments as any[]).find((d: any) => d.id === id)?.name ?? "—";
   const getAgentName = (id: number | null | undefined) => {
     if (!id) return "Não atribuído";
+    // Tenta primeiro na lista de agentes (disponível para admin/agent)
     const a = (agents as any[]).find((u: any) => u.id === id);
-    return a?.name ?? "—";
+    if (a?.name) return a.name;
+    // Fallback: usa o nome enriquecido retornado diretamente pelo backend
+    if (ticket?.assignedUserName) return ticket.assignedUserName;
+    return "—";
   };
 
   const atRisk = isSlaAtRisk(ticket.resolutionDeadline);

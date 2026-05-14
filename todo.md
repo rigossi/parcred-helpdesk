@@ -97,3 +97,6 @@
 - [x] Tornar tipo e prioridade opcionais/com valor padrão no backend
 - [x] Adicionar upload de anexos opcional no formulário de abertura
 - [x] Garantir que agente/admin possa definir prioridade na tela de detalhe do chamado
+
+## Bug Fix
+- [x] Responsável não exibe o nome do agente atribuído na tela de detalhe do chamado
