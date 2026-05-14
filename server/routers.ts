@@ -39,6 +39,7 @@ import {
   updateUserRole,
   getUserByEmail,
   updateUserLastSignedIn,
+  createUser,
 } from "./db";
 
 // ─── Middleware helpers ───────────────────────────────────────────────────────
@@ -176,17 +177,31 @@ export const appRouter = router({
         z.object({
           name: z.string().min(2),
           document: z.string().optional(),
-          email: z.string().email().optional(),
+          email: z.string().email(),
+          password: z.string().min(6),
           phone: z.string().optional(),
           city: z.string().optional(),
           state: z.string().max(2).optional(),
-          bankCode: z.string().optional(),
           status: z.enum(["active", "inactive", "suspended"]).optional(),
           notes: z.string().optional(),
-          userId: z.number().optional(),
         })
       )
-      .mutation(({ input }) => createCorrespondent(input)),
+      .mutation(async ({ input }) => {
+        // Verificar se e-mail já existe
+        const existing = await getUserByEmail(input.email);
+        if (existing) throw new TRPCError({ code: "CONFLICT", message: "Já existe um usuário com este e-mail." });
+        // Criar usuário com perfil correspondent
+        const passwordHash = await bcrypt.hash(input.password, 12);
+        const newUser = await createUser({
+          name: input.name,
+          email: input.email,
+          passwordHash,
+          role: "correspondent",
+        });
+        // Criar correspondente vinculado ao usuário
+        const { password: _p, ...corrData } = input;
+        return createCorrespondent({ ...corrData, userId: newUser.id });
+      }),
 
     update: adminProcedure
       .input(
@@ -195,18 +210,35 @@ export const appRouter = router({
           name: z.string().min(2).optional(),
           document: z.string().optional(),
           email: z.string().email().optional(),
+          newPassword: z.string().min(6).optional(),
           phone: z.string().optional(),
           city: z.string().optional(),
           state: z.string().max(2).optional(),
-          bankCode: z.string().optional(),
           status: z.enum(["active", "inactive", "suspended"]).optional(),
           notes: z.string().optional(),
-          userId: z.number().nullable().optional(),
         })
       )
-      .mutation(({ input }) => {
-        const { id, ...data } = input;
-        return updateCorrespondent(id, data as any);
+      .mutation(async ({ input }) => {
+        const { id, newPassword, email, ...data } = input;
+        // Buscar correspondente para obter o userId
+        const correspondent = await getCorrespondentById(id);
+        if (!correspondent) throw new TRPCError({ code: "NOT_FOUND" });
+        // Atualizar senha se fornecida
+        if (newPassword && correspondent.userId) {
+          const passwordHash = await bcrypt.hash(newPassword, 12);
+          const { getDb: _getDb, users: _users } = await import("./db");
+          const { eq: _eq } = await import("drizzle-orm");
+          const db = await _getDb();
+          if (db) await db.update(_users).set({ passwordHash }).where(_eq(_users.id, correspondent.userId));
+        }
+        // Atualizar e-mail no usuário vinculado
+        if (email && correspondent.userId) {
+          const { getDb: _getDb2, users: _users2 } = await import("./db");
+          const { eq: _eq2 } = await import("drizzle-orm");
+          const db2 = await _getDb2();
+          if (db2) await db2.update(_users2).set({ email, name: data.name ?? undefined }).where(_eq2(_users2.id, correspondent.userId));
+        }
+        return updateCorrespondent(id, { ...data, ...(email ? { email } : {}) } as any);
       }),
   }),
 

@@ -76,3 +76,9 @@
 - [x] Upload do logo Parcred e geração de favicon com a marca
 - [x] Aplicar logo na tela de login
 - [x] Aplicar logo na sidebar
+
+## Correspondentes com Login Próprio
+- [x] Remover campo "código bancário" do formulário de cadastro de correspondentes
+- [x] Adicionar campos e-mail e senha no cadastro de correspondente para criar usuário automaticamente
+- [x] Backend: ao criar correspondente, criar usuário com perfil "correspondent" e vincular
+- [x] Backend: ao editar correspondente, permitir redefinir senha do usuário vinculado

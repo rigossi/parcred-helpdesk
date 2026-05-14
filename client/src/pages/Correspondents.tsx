@@ -10,22 +10,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { getCorrespondentStatusClass, CORRESPONDENT_STATUS_LABELS } from "@/lib/helpers";
 import { trpc } from "@/lib/trpc";
-import { BookUser, Mail, MapPin, Pencil, Phone, Plus, Search } from "lucide-react";
+import { BookUser, Eye, EyeOff, Loader2, Mail, MapPin, Pencil, Phone, Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 
-type CorrespondentForm = {
-  name: string; document: string; email: string; phone: string;
-  city: string; state: string; bankCode: string;
-  status: string; notes: string; userId: string;
+type CreateForm = {
+  name: string; document: string; email: string; password: string;
+  phone: string; city: string; state: string; status: string; notes: string;
 };
 
-const emptyForm: CorrespondentForm = {
-  name: "", document: "", email: "", phone: "",
-  city: "", state: "", bankCode: "",
-  status: "active", notes: "", userId: "",
+type EditForm = {
+  name: string; document: string; email: string; newPassword: string;
+  phone: string; city: string; state: string; status: string; notes: string;
 };
+
+const emptyCreate: CreateForm = { name: "", document: "", email: "", password: "", phone: "", city: "", state: "", status: "active", notes: "" };
+const emptyEdit: EditForm = { name: "", document: "", email: "", newPassword: "", phone: "", city: "", state: "", status: "active", notes: "" };
 
 const STATES = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
@@ -34,48 +35,81 @@ export default function Correspondents() {
   const isAdmin = user?.role === "admin";
 
   const { data: correspondents = [], refetch } = trpc.correspondents.list.useQuery();
-  const { data: users = [] } = trpc.admin.users.useQuery(undefined, { enabled: isAdmin });
-  const createMut = trpc.correspondents.create.useMutation({ onSuccess: () => { refetch(); toast.success("Correspondente cadastrado."); setOpen(false); } });
-  const updateMut = trpc.correspondents.update.useMutation({ onSuccess: () => { refetch(); toast.success("Correspondente atualizado."); setOpen(false); } });
+
+  const createMut = trpc.correspondents.create.useMutation({
+    onSuccess: () => { refetch(); toast.success("Correspondente cadastrado com acesso ao sistema."); setOpen(false); },
+    onError: (err) => toast.error(err.message ?? "Erro ao cadastrar correspondente."),
+  });
+  const updateMut = trpc.correspondents.update.useMutation({
+    onSuccess: () => { refetch(); toast.success("Correspondente atualizado."); setOpen(false); },
+    onError: (err) => toast.error(err.message ?? "Erro ao atualizar correspondente."),
+  });
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
-  const [form, setForm] = useState<CorrespondentForm>(emptyForm);
+  const [createForm, setCreateForm] = useState<CreateForm>(emptyCreate);
+  const [editForm, setEditForm] = useState<EditForm>(emptyEdit);
+  const [showPassword, setShowPassword] = useState(false);
   const [search, setSearch] = useState("");
 
-  function openCreate() { setEditing(null); setForm(emptyForm); setOpen(true); }
+  function openCreate() { setEditing(null); setCreateForm(emptyCreate); setShowPassword(false); setOpen(true); }
   function openEdit(c: any) {
     setEditing(c.id);
-    setForm({
+    setEditForm({
       name: c.name ?? "", document: c.document ?? "", email: c.email ?? "",
-      phone: c.phone ?? "", city: c.city ?? "", state: c.state ?? "",
-      bankCode: c.bankCode ?? "", status: c.status ?? "active",
-      notes: c.notes ?? "", userId: c.userId ? String(c.userId) : "",
+      newPassword: "", phone: c.phone ?? "", city: c.city ?? "",
+      state: c.state ?? "", status: c.status ?? "active", notes: c.notes ?? "",
     });
+    setShowPassword(false);
     setOpen(true);
   }
 
-  function handleSubmit() {
-    if (!form.name.trim()) return toast.error("Nome é obrigatório.");
-    const data: any = {
-      name: form.name, document: form.document || undefined, email: form.email || undefined,
-      phone: form.phone || undefined, city: form.city || undefined, state: form.state || undefined,
-      bankCode: form.bankCode || undefined, status: form.status as any,
-      notes: form.notes || undefined, userId: form.userId ? Number(form.userId) : undefined,
-    };
-    if (editing) updateMut.mutate({ id: editing, ...data });
-    else createMut.mutate(data);
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing) {
+      if (!createForm.name.trim()) return toast.error("Nome é obrigatório.");
+      if (!createForm.email.trim()) return toast.error("E-mail é obrigatório.");
+      if (!createForm.password || createForm.password.length < 6) return toast.error("Senha deve ter ao menos 6 caracteres.");
+      createMut.mutate({
+        name: createForm.name,
+        document: createForm.document || undefined,
+        email: createForm.email,
+        password: createForm.password,
+        phone: createForm.phone || undefined,
+        city: createForm.city || undefined,
+        state: createForm.state || undefined,
+        status: createForm.status as any,
+        notes: createForm.notes || undefined,
+      });
+    } else {
+      if (!editForm.name.trim()) return toast.error("Nome é obrigatório.");
+      updateMut.mutate({
+        id: editing,
+        name: editForm.name,
+        document: editForm.document || undefined,
+        email: editForm.email || undefined,
+        newPassword: editForm.newPassword || undefined,
+        phone: editForm.phone || undefined,
+        city: editForm.city || undefined,
+        state: editForm.state || undefined,
+        status: editForm.status as any,
+        notes: editForm.notes || undefined,
+      });
+    }
   }
 
   const filtered = (correspondents as any[]).filter((c: any) =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.email ?? "").toLowerCase().includes(search.toLowerCase()) ||
-    (c.bankCode ?? "").toLowerCase().includes(search.toLowerCase())
+    !search ||
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.email ?? "").toLowerCase().includes(search.toLowerCase())
   );
+
+  const isPending = createMut.isPending || updateMut.isPending;
 
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
@@ -89,7 +123,7 @@ export default function Correspondents() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome, e-mail ou código..."
+                placeholder="Buscar por nome ou e-mail..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9 w-64"
@@ -103,13 +137,13 @@ export default function Correspondents() {
           </div>
         </div>
 
+        {/* Tabela */}
         <Card className="border shadow-sm">
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
                   <TableHead>Nome</TableHead>
-                  <TableHead>Código</TableHead>
                   <TableHead>Contato</TableHead>
                   <TableHead>Localização</TableHead>
                   <TableHead className="text-center">Status</TableHead>
@@ -130,7 +164,6 @@ export default function Correspondents() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-sm text-muted-foreground">{c.bankCode ?? "—"}</TableCell>
                     <TableCell>
                       <div className="space-y-0.5">
                         {c.email && (
@@ -170,7 +203,7 @@ export default function Correspondents() {
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={isAdmin ? 6 : 5} className="text-center py-10 text-muted-foreground">
+                    <TableCell colSpan={isAdmin ? 5 : 4} className="text-center py-10 text-muted-foreground">
                       {search ? "Nenhum correspondente encontrado para esta busca." : "Nenhum correspondente cadastrado."}
                     </TableCell>
                   </TableRow>
@@ -181,80 +214,140 @@ export default function Correspondents() {
         </Card>
       </div>
 
+      {/* Dialog */}
       {isAdmin && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? "Editar Correspondente" : "Novo Correspondente"}</DialogTitle>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-4 py-2">
-              <div className="col-span-2 space-y-1.5">
-                <Label>Nome completo / Razão social *</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome do correspondente" />
+            <form onSubmit={handleSubmit}>
+              <div className="grid grid-cols-2 gap-4 py-2">
+                {/* Nome */}
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Nome completo / Razão social *</Label>
+                  <Input
+                    value={editing ? editForm.name : createForm.name}
+                    onChange={(e) => editing ? setEditForm({ ...editForm, name: e.target.value }) : setCreateForm({ ...createForm, name: e.target.value })}
+                    placeholder="Nome do correspondente"
+                    required
+                  />
+                </div>
+
+                {/* CPF/CNPJ */}
+                <div className="space-y-1.5">
+                  <Label>CPF / CNPJ</Label>
+                  <Input
+                    value={editing ? editForm.document : createForm.document}
+                    onChange={(e) => editing ? setEditForm({ ...editForm, document: e.target.value }) : setCreateForm({ ...createForm, document: e.target.value })}
+                    placeholder="000.000.000-00"
+                  />
+                </div>
+
+                {/* Telefone */}
+                <div className="space-y-1.5">
+                  <Label>Telefone</Label>
+                  <Input
+                    value={editing ? editForm.phone : createForm.phone}
+                    onChange={(e) => editing ? setEditForm({ ...editForm, phone: e.target.value }) : setCreateForm({ ...createForm, phone: e.target.value })}
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
+
+                {/* E-mail */}
+                <div className="space-y-1.5">
+                  <Label>E-mail de acesso {!editing && "*"}</Label>
+                  <Input
+                    type="email"
+                    value={editing ? editForm.email : createForm.email}
+                    onChange={(e) => editing ? setEditForm({ ...editForm, email: e.target.value }) : setCreateForm({ ...createForm, email: e.target.value })}
+                    placeholder="email@exemplo.com"
+                    required={!editing}
+                  />
+                </div>
+
+                {/* Senha */}
+                <div className="space-y-1.5">
+                  <Label>{editing ? "Nova senha (deixe em branco para manter)" : "Senha de acesso *"}</Label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={editing ? editForm.newPassword : createForm.password}
+                      onChange={(e) => editing ? setEditForm({ ...editForm, newPassword: e.target.value }) : setCreateForm({ ...createForm, password: e.target.value })}
+                      placeholder={editing ? "••••••••" : "Mínimo 6 caracteres"}
+                      required={!editing}
+                      minLength={!editing ? 6 : undefined}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Cidade */}
+                <div className="space-y-1.5">
+                  <Label>Cidade</Label>
+                  <Input
+                    value={editing ? editForm.city : createForm.city}
+                    onChange={(e) => editing ? setEditForm({ ...editForm, city: e.target.value }) : setCreateForm({ ...createForm, city: e.target.value })}
+                    placeholder="Cidade"
+                  />
+                </div>
+
+                {/* Estado */}
+                <div className="space-y-1.5">
+                  <Label>Estado</Label>
+                  <Select
+                    value={editing ? editForm.state : createForm.state}
+                    onValueChange={(v) => editing ? setEditForm({ ...editForm, state: v }) : setCreateForm({ ...createForm, state: v })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
+                    <SelectContent>
+                      {STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Status */}
+                <div className="space-y-1.5">
+                  <Label>Status</Label>
+                  <Select
+                    value={editing ? editForm.status : createForm.status}
+                    onValueChange={(v) => editing ? setEditForm({ ...editForm, status: v }) : setCreateForm({ ...createForm, status: v })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Ativo</SelectItem>
+                      <SelectItem value="inactive">Inativo</SelectItem>
+                      <SelectItem value="suspended">Suspenso</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Observações */}
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Observações</Label>
+                  <Textarea
+                    value={editing ? editForm.notes : createForm.notes}
+                    onChange={(e) => editing ? setEditForm({ ...editForm, notes: e.target.value }) : setCreateForm({ ...createForm, notes: e.target.value })}
+                    placeholder="Informações adicionais..."
+                    rows={3}
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>CPF / CNPJ</Label>
-                <Input value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} placeholder="000.000.000-00" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Código do correspondente</Label>
-                <Input value={form.bankCode} onChange={(e) => setForm({ ...form, bankCode: e.target.value })} placeholder="Ex: CB-001" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>E-mail</Label>
-                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@exemplo.com" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Telefone</Label>
-                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(11) 99999-9999" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Cidade</Label>
-                <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Cidade" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Estado</Label>
-                <Select value={form.state} onValueChange={(v) => setForm({ ...form, state: v })}>
-                  <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
-                  <SelectContent>
-                    {STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Ativo</SelectItem>
-                    <SelectItem value="inactive">Inativo</SelectItem>
-                    <SelectItem value="suspended">Suspenso</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Vincular ao usuário</Label>
-                <Select value={form.userId} onValueChange={(v) => setForm({ ...form, userId: v })}>
-                  <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {(users as any[]).map((u: any) => (
-                      <SelectItem key={u.id} value={String(u.id)}>{u.name ?? u.email ?? u.openId}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label>Observações</Label>
-                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Informações adicionais..." rows={3} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button onClick={handleSubmit} disabled={createMut.isPending || updateMut.isPending}>
-                {editing ? "Salvar alterações" : "Cadastrar correspondente"}
-              </Button>
-            </DialogFooter>
+              <DialogFooter className="pt-2">
+                <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Salvando…</> : editing ? "Salvar alterações" : "Cadastrar correspondente"}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       )}
