@@ -13,11 +13,11 @@ import {
 
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
-  openId: varchar("openId", { length: 64 }).notNull().unique(),
-  name: text("name"),
-  email: varchar("email", { length: 320 }),
-  loginMethod: varchar("loginMethod", { length: 64 }),
+  name: varchar("name", { length: 128 }),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  passwordHash: varchar("passwordHash", { length: 256 }).notNull(),
   role: mysqlEnum("role", ["user", "admin", "agent", "correspondent"]).default("user").notNull(),
+  active: boolean("active").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -148,6 +148,7 @@ export const notifications = mysqlTable("notifications", {
   message: text("message").notNull(),
   type: mysqlEnum("type", ["ticket_opened", "ticket_updated", "ticket_assigned", "ticket_resolved", "ticket_closed", "sla_warning"]).notNull(),
   read: boolean("read").default(false).notNull(),
+  readAt: timestamp("readAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

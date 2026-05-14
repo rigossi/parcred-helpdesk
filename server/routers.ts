@@ -1,9 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { createSessionToken } from "./_core/context";
 import {
   createCorrespondent,
   createDepartment,
@@ -35,6 +37,8 @@ import {
   updateSlaPolicy,
   updateTicket,
   updateUserRole,
+  getUserByEmail,
+  updateUserLastSignedIn,
 } from "./db";
 
 // ─── Middleware helpers ───────────────────────────────────────────────────────
@@ -69,8 +73,28 @@ async function notifyTicketEvent(
 export const appRouter = router({
   system: systemRouter,
 
+  // ─── Auth (e-mail + senha) ─────────────────────────────────────────────────
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
+
+    login: publicProcedure
+      .input(z.object({ email: z.string().email(), password: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        const user = await getUserByEmail(input.email);
+        if (!user || !user.active) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha inválidos." });
+        }
+        const valid = await bcrypt.compare(input.password, user.passwordHash);
+        if (!valid) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha inválidos." });
+        }
+        await updateUserLastSignedIn(user.id);
+        const token = await createSessionToken(user.id);
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
+        return { success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+      }),
+
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -143,12 +167,8 @@ export const appRouter = router({
   // ─── Correspondents ─────────────────────────────────────────────────────────
   correspondents: router({
     list: agentOrAdminProcedure.query(() => getCorrespondents()),
-
-    // Correspondente pode ver a lista para abertura de chamado por staff
     listForTicket: protectedProcedure.query(() => getCorrespondents()),
-
     byId: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) => getCorrespondentById(input.id)),
-
     myProfile: protectedProcedure.query(({ ctx }) => getCorrespondentByUserId(ctx.user.id)),
 
     create: adminProcedure
@@ -202,7 +222,6 @@ export const appRouter = router({
         }).optional()
       )
       .query(async ({ ctx, input }) => {
-        // Correspondente só vê seus próprios tickets
         if (ctx.user.role === "correspondent") {
           const correspondent = await getCorrespondentByUserId(ctx.user.id);
           if (!correspondent) return [];
@@ -226,8 +245,6 @@ export const appRouter = router({
     byId: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
       const ticket = await getTicketById(input.id);
       if (!ticket) throw new TRPCError({ code: "NOT_FOUND" });
-
-      // Correspondente só acessa seus próprios tickets
       if (ctx.user.role === "correspondent") {
         const correspondent = await getCorrespondentByUserId(ctx.user.id);
         if (!correspondent || ticket.correspondentId !== correspondent.id) {
@@ -251,29 +268,17 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        // Buscar SLA correspondente
         const sla = await getSlaPolicyByDeptAndType(input.departmentId, input.ticketType, input.priority);
-
         const ticket = await createTicket({
           ...input,
           openedByUserId: ctx.user.id,
           slaPolicyId: sla?.id,
           status: "open",
         });
-
         if (!ticket) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-
-        // Notificar agentes e admins
         const allUsers = await getAllUsers();
-        const staffIds = allUsers.filter((u) => u.role === "admin" || u.role === "agent").map((u) => u.id);
-        await notifyTicketEvent(
-          staffIds,
-          ticket.id,
-          "ticket_opened",
-          `Novo chamado: ${ticket.ticketNumber}`,
-          `${ctx.user.name ?? "Correspondente"} abriu o chamado "${input.title}"`
-        );
-
+        const staffIds = allUsers.filter((u: { role: string; id: number }) => u.role === "admin" || u.role === "agent").map((u: { id: number }) => u.id);
+        await notifyTicketEvent(staffIds, ticket.id, "ticket_opened", `Novo chamado: ${ticket.ticketNumber}`, `${ctx.user.name ?? "Correspondente"} abriu o chamado "${input.title}"`);
         return ticket;
       }),
 
@@ -290,38 +295,15 @@ export const appRouter = router({
         const { id, ...data } = input;
         const ticket = await getTicketById(id);
         if (!ticket) throw new TRPCError({ code: "NOT_FOUND" });
-
         const updateData: Record<string, unknown> = { ...data };
-
-        if (data.status === "resolved" && ticket.status !== "resolved") {
-          updateData.resolvedAt = new Date();
-        }
-        if (data.status === "closed" && ticket.status !== "closed") {
-          updateData.closedAt = new Date();
-        }
-
+        if (data.status === "resolved" && ticket.status !== "resolved") updateData.resolvedAt = new Date();
+        if (data.status === "closed" && ticket.status !== "closed") updateData.closedAt = new Date();
         await updateTicket(id, updateData as any);
-
-        // Notificar quem abriu o ticket
         const type = data.status === "resolved" ? "ticket_resolved" : data.status === "closed" ? "ticket_closed" : "ticket_updated";
-        await notifyTicketEvent(
-          [ticket.openedByUserId],
-          id,
-          type,
-          `Chamado ${ticket.ticketNumber} atualizado`,
-          `O status do seu chamado foi atualizado para: ${data.status ?? "atualizado"}`
-        );
-
+        await notifyTicketEvent([ticket.openedByUserId], id, type, `Chamado ${ticket.ticketNumber} atualizado`, `O status do seu chamado foi atualizado para: ${data.status ?? "atualizado"}`);
         if (data.assignedToUserId) {
-          await notifyTicketEvent(
-            [data.assignedToUserId],
-            id,
-            "ticket_assigned",
-            `Chamado atribuído: ${ticket.ticketNumber}`,
-            `O chamado "${ticket.title}" foi atribuído a você.`
-          );
+          await notifyTicketEvent([data.assignedToUserId], id, "ticket_assigned", `Chamado atribuído: ${ticket.ticketNumber}`, `O chamado "${ticket.title}" foi atribuído a você.`);
         }
-
         return getTicketById(id);
       }),
 
@@ -331,13 +313,7 @@ export const appRouter = router({
         const ticket = await getTicketById(input.id);
         if (!ticket) throw new TRPCError({ code: "NOT_FOUND" });
         await updateTicket(input.id, { assignedToUserId: input.agentId, status: "in_progress" });
-        await notifyTicketEvent(
-          [input.agentId],
-          input.id,
-          "ticket_assigned",
-          `Chamado atribuído: ${ticket.ticketNumber}`,
-          `O chamado "${ticket.title}" foi atribuído a você.`
-        );
+        await notifyTicketEvent([input.agentId], input.id, "ticket_assigned", `Chamado atribuído: ${ticket.ticketNumber}`, `O chamado "${ticket.title}" foi atribuído a você.`);
         return { success: true };
       }),
   }),
@@ -352,54 +328,25 @@ export const appRouter = router({
       }),
 
     create: protectedProcedure
-      .input(
-        z.object({
-          ticketId: z.number(),
-          message: z.string().min(1),
-          isInternal: z.boolean().optional(),
-        })
-      )
+      .input(z.object({ ticketId: z.number(), message: z.string().min(1), isInternal: z.boolean().optional() }))
       .mutation(async ({ ctx, input }) => {
         const ticket = await getTicketById(input.ticketId);
         if (!ticket) throw new TRPCError({ code: "NOT_FOUND" });
-
-        // Correspondente não pode enviar nota interna
-        if (ctx.user.role === "correspondent" && input.isInternal) {
-          throw new TRPCError({ code: "FORBIDDEN" });
-        }
-
-        const msg = await createTicketMessage({
-          ticketId: input.ticketId,
-          userId: ctx.user.id,
-          message: input.message,
-          isInternal: input.isInternal ?? false,
-        });
-
-        // Marcar primeira resposta do agente
+        if (ctx.user.role === "correspondent" && input.isInternal) throw new TRPCError({ code: "FORBIDDEN" });
+        const msg = await createTicketMessage({ ticketId: input.ticketId, userId: ctx.user.id, message: input.message, isInternal: input.isInternal ?? false });
         if ((ctx.user.role === "agent" || ctx.user.role === "admin") && !ticket.firstResponseAt) {
           await updateTicket(input.ticketId, { firstResponseAt: new Date() });
         }
-
-        // Notificar
         if (!input.isInternal) {
           const notifyIds: number[] = [];
           if (ctx.user.role === "correspondent") {
-            // Notificar agente e admin
             const allUsers = await getAllUsers();
-            const staffIds = allUsers.filter((u) => u.role === "admin" || u.role === "agent").map((u) => u.id);
-            notifyIds.push(...staffIds);
+            notifyIds.push(...allUsers.filter((u: { role: string; id: number }) => u.role === "admin" || u.role === "agent").map((u: { id: number }) => u.id));
           } else {
             notifyIds.push(ticket.openedByUserId);
           }
-          await notifyTicketEvent(
-            notifyIds,
-            input.ticketId,
-            "ticket_updated",
-            `Nova mensagem no chamado ${ticket.ticketNumber}`,
-            `${ctx.user.name ?? "Usuário"} adicionou uma mensagem ao chamado "${ticket.title}"`
-          );
+          await notifyTicketEvent(notifyIds, input.ticketId, "ticket_updated", `Nova mensagem no chamado ${ticket.ticketNumber}`, `${ctx.user.name ?? "Usuário"} adicionou uma mensagem ao chamado "${ticket.title}"`);
         }
-
         return msg;
       }),
   }),
@@ -411,20 +358,8 @@ export const appRouter = router({
       .query(({ input }) => getTicketAttachments(input.ticketId)),
 
     create: protectedProcedure
-      .input(
-        z.object({
-          ticketId: z.number(),
-          messageId: z.number().optional(),
-          fileName: z.string(),
-          fileKey: z.string(),
-          fileUrl: z.string(),
-          mimeType: z.string().optional(),
-          fileSize: z.number().optional(),
-        })
-      )
-      .mutation(({ ctx, input }) =>
-        createTicketAttachment({ ...input, uploadedByUserId: ctx.user.id })
-      ),
+      .input(z.object({ ticketId: z.number(), messageId: z.number().optional(), fileName: z.string(), fileKey: z.string(), fileUrl: z.string(), mimeType: z.string().optional(), fileSize: z.number().optional() }))
+      .mutation(({ ctx, input }) => createTicketAttachment({ ...input, uploadedByUserId: ctx.user.id })),
   }),
 
   // ─── Notifications ───────────────────────────────────────────────────────────
@@ -449,6 +384,33 @@ export const appRouter = router({
     updateUserRole: adminProcedure
       .input(z.object({ userId: z.number(), role: z.enum(["user", "admin", "agent", "correspondent"]) }))
       .mutation(({ input }) => updateUserRole(input.userId, input.role)),
+
+    createUser: adminProcedure
+      .input(z.object({
+        name: z.string().min(2),
+        email: z.string().email(),
+        password: z.string().min(6),
+        role: z.enum(["user", "admin", "agent", "correspondent"]).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const existing = await getUserByEmail(input.email);
+        if (existing) throw new TRPCError({ code: "CONFLICT", message: "E-mail já cadastrado." });
+        const passwordHash = await bcrypt.hash(input.password, 12);
+        const { createUser } = await import("./db");
+        return createUser({ name: input.name, email: input.email, passwordHash, role: input.role ?? "user" });
+      }),
+
+    resetPassword: adminProcedure
+      .input(z.object({ userId: z.number(), newPassword: z.string().min(6) }))
+      .mutation(async ({ input }) => {
+        const passwordHash = await bcrypt.hash(input.newPassword, 12);
+        const { getDb, users } = await import("./db");
+        const { eq } = await import("drizzle-orm");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        await db.update(users).set({ passwordHash }).where(eq(users.id, input.userId));
+        return { success: true };
+      }),
   }),
 });
 

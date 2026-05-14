@@ -22,7 +22,6 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { trpc } from "@/lib/trpc";
 import { ROLE_LABELS } from "@/lib/helpers";
@@ -119,11 +118,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </p>
           </div>
           <Button
-            onClick={() => { window.location.href = getLoginUrl(); }}
+            onClick={() => { window.location.href = "/"; }}
             size="lg"
             className="w-full bg-primary hover:bg-primary/90 text-white font-semibold shadow-lg"
           >
-            Entrar no sistema
+            Ir para o login
           </Button>
           <p className="text-xs text-muted-foreground text-center">
             Grupo Angar · Parcred Brasil

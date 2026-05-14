@@ -55,3 +55,13 @@
 ## Testes
 - [x] Testes vitest para routers principais (24 testes passando)
 - [x] Verificação de responsividade mobile/tablet
+
+## Autenticação Própria (e-mail + senha)
+- [x] Instalar bcryptjs
+- [x] Adicionar campo passwordHash na tabela users, tornar openId opcional
+- [x] Reescrever backend de auth: login, logout, me com JWT próprio
+- [x] Remover todas as referências ao Manus OAuth
+- [x] Reescrever tela de login com formulário e-mail/senha
+- [x] Reescrever useAuth hook sem dependência do Manus
+- [x] Criar usuário admin padrão via seed SQL
+- [x] Atualizar DashboardLayout para usar novo useAuth

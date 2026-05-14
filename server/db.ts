@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   correspondents,
@@ -9,15 +9,30 @@ import {
   ticketMessages,
   tickets,
   users,
-  type InsertCorrespondent,
-  type InsertDepartment,
-  type InsertNotification,
-  type InsertSlaPolicy,
-  type InsertTicket,
-  type InsertTicketAttachment,
-  type InsertTicketMessage,
-  type InsertUser,
 } from "../drizzle/schema";
+import type {
+  InsertCorrespondent,
+  InsertDepartment,
+  InsertNotification,
+  InsertSlaPolicy,
+  InsertTicket,
+  InsertTicketAttachment,
+  InsertTicketMessage,
+  InsertUser,
+} from "../drizzle/schema";
+
+export {
+  users,
+  departments,
+  slaPolicies,
+  correspondents,
+  tickets,
+  ticketMessages,
+  ticketAttachments,
+  notifications,
+};
+
+// ─── DB connection ────────────────────────────────────────────────────────────
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -35,53 +50,38 @@ export async function getDb() {
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
-export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) throw new Error("User openId is required for upsert");
-  const db = await getDb();
-  if (!db) return;
-
-  const { ENV } = await import("./_core/env");
-  const values: InsertUser = { openId: user.openId };
-  const updateSet: Record<string, unknown> = {};
-
-  const textFields = ["name", "email", "loginMethod"] as const;
-  for (const field of textFields) {
-    const value = user[field];
-    if (value === undefined) continue;
-    const normalized = value ?? null;
-    values[field] = normalized;
-    updateSet[field] = normalized;
-  }
-
-  if (user.lastSignedIn !== undefined) {
-    values.lastSignedIn = user.lastSignedIn;
-    updateSet.lastSignedIn = user.lastSignedIn;
-  }
-  if (user.role !== undefined) {
-    values.role = user.role;
-    updateSet.role = user.role;
-  } else if (user.openId === ENV.ownerOpenId) {
-    values.role = "admin";
-    updateSet.role = "admin";
-  }
-
-  if (!values.lastSignedIn) values.lastSignedIn = new Date();
-  if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
-
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
-}
-
-export async function getUserByOpenId(openId: string) {
+export async function getUserByEmail(email: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-  return result[0];
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result[0] ?? undefined;
+}
+
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result[0] ?? undefined;
+}
+
+export async function createUser(data: InsertUser) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(users).values(data);
+  const created = await getUserByEmail(data.email!);
+  return created!;
+}
+
+export async function updateUserLastSignedIn(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, id));
 }
 
 export async function getAllUsers() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(users).orderBy(desc(users.createdAt));
+  return db.select().from(users).orderBy(users.name);
 }
 
 export async function updateUserRole(userId: number, role: "user" | "admin" | "agent" | "correspondent") {
@@ -95,35 +95,32 @@ export async function updateUserRole(userId: number, role: "user" | "admin" | "a
 export async function getDepartments(activeOnly = false) {
   const db = await getDb();
   if (!db) return [];
-  const query = db.select().from(departments);
-  if (activeOnly) return query.where(eq(departments.active, true)).orderBy(departments.name);
-  return query.orderBy(departments.name);
+  if (activeOnly) {
+    return db.select().from(departments).where(eq(departments.active, true)).orderBy(departments.name);
+  }
+  return db.select().from(departments).orderBy(departments.name);
 }
 
 export async function getDepartmentById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(departments).where(eq(departments.id, id)).limit(1);
-  return result[0];
+  return result[0] ?? undefined;
 }
 
 export async function createDepartment(data: InsertDepartment) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const result = await db.insert(departments).values(data);
-  return result[0];
+  if (!db) throw new Error("Database not available");
+  await db.insert(departments).values(data);
+  const all = await db.select().from(departments).orderBy(desc(departments.createdAt)).limit(1);
+  return all[0];
 }
 
 export async function updateDepartment(id: number, data: Partial<InsertDepartment>) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
+  if (!db) return;
   await db.update(departments).set(data).where(eq(departments.id, id));
-}
-
-export async function deleteDepartment(id: number) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(departments).set({ active: false }).where(eq(departments.id, id));
+  return getDepartmentById(id);
 }
 
 // ─── SLA Policies ─────────────────────────────────────────────────────────────
@@ -132,16 +129,16 @@ export async function getSlaPolicies(activeOnly = false) {
   const db = await getDb();
   if (!db) return [];
   if (activeOnly) {
-    return db.select().from(slaPolicies).where(eq(slaPolicies.active, true)).orderBy(slaPolicies.departmentId, slaPolicies.priority);
+    return db.select().from(slaPolicies).where(eq(slaPolicies.active, true)).orderBy(slaPolicies.name);
   }
-  return db.select().from(slaPolicies).orderBy(slaPolicies.departmentId, slaPolicies.priority);
+  return db.select().from(slaPolicies).orderBy(slaPolicies.name);
 }
 
 export async function getSlaPolicyById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(slaPolicies).where(eq(slaPolicies.id, id)).limit(1);
-  return result[0];
+  return result[0] ?? undefined;
 }
 
 export async function getSlaPolicyByDeptAndType(
@@ -163,19 +160,22 @@ export async function getSlaPolicyByDeptAndType(
       )
     )
     .limit(1);
-  return result[0];
+  return result[0] ?? undefined;
 }
 
 export async function createSlaPolicy(data: InsertSlaPolicy) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
+  if (!db) throw new Error("Database not available");
   await db.insert(slaPolicies).values(data);
+  const all = await db.select().from(slaPolicies).orderBy(desc(slaPolicies.createdAt)).limit(1);
+  return all[0];
 }
 
 export async function updateSlaPolicy(id: number, data: Partial<InsertSlaPolicy>) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
+  if (!db) return;
   await db.update(slaPolicies).set(data).where(eq(slaPolicies.id, id));
+  return getSlaPolicyById(id);
 }
 
 // ─── Correspondents ───────────────────────────────────────────────────────────
@@ -190,77 +190,38 @@ export async function getCorrespondentById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(correspondents).where(eq(correspondents.id, id)).limit(1);
-  return result[0];
+  return result[0] ?? undefined;
 }
 
 export async function getCorrespondentByUserId(userId: number) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(correspondents).where(eq(correspondents.userId, userId)).limit(1);
-  return result[0];
+  return result[0] ?? undefined;
 }
 
 export async function createCorrespondent(data: InsertCorrespondent) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const result = await db.insert(correspondents).values(data);
-  return result[0];
+  if (!db) throw new Error("Database not available");
+  await db.insert(correspondents).values(data);
+  const all = await db.select().from(correspondents).orderBy(desc(correspondents.createdAt)).limit(1);
+  return all[0];
 }
 
 export async function updateCorrespondent(id: number, data: Partial<InsertCorrespondent>) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
+  if (!db) return;
   await db.update(correspondents).set(data).where(eq(correspondents.id, id));
+  return getCorrespondentById(id);
 }
 
 // ─── Tickets ──────────────────────────────────────────────────────────────────
-
-async function generateTicketNumber(): Promise<string> {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const year = new Date().getFullYear();
-  const result = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(tickets)
-    .where(sql`YEAR(createdAt) = ${year}`);
-  const count = Number(result[0]?.count ?? 0) + 1;
-  return `TKT-${year}-${String(count).padStart(4, "0")}`;
-}
-
-export async function createTicket(data: Omit<InsertTicket, "ticketNumber">) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const ticketNumber = await generateTicketNumber();
-
-  // Calcular deadlines pelo SLA
-  let responseDeadline: Date | undefined;
-  let resolutionDeadline: Date | undefined;
-  if (data.slaPolicyId) {
-    const sla = await getSlaPolicyById(data.slaPolicyId);
-    if (sla) {
-      const now = new Date();
-      responseDeadline = new Date(now.getTime() + sla.responseTimeHours * 3600000);
-      resolutionDeadline = new Date(now.getTime() + sla.resolutionTimeHours * 3600000);
-    }
-  }
-
-  await db.insert(tickets).values({
-    ...data,
-    ticketNumber,
-    responseDeadline,
-    resolutionDeadline,
-  });
-
-  const created = await db.select().from(tickets).where(eq(tickets.ticketNumber, ticketNumber)).limit(1);
-  return created[0];
-}
 
 export async function getTickets(filters?: {
   status?: string;
   correspondentId?: number;
   assignedToUserId?: number;
   departmentId?: number;
-  openedByUserId?: number;
 }) {
   const db = await getDb();
   if (!db) return [];
@@ -270,45 +231,65 @@ export async function getTickets(filters?: {
   if (filters?.correspondentId) conditions.push(eq(tickets.correspondentId, filters.correspondentId));
   if (filters?.assignedToUserId) conditions.push(eq(tickets.assignedToUserId, filters.assignedToUserId));
   if (filters?.departmentId) conditions.push(eq(tickets.departmentId, filters.departmentId));
-  if (filters?.openedByUserId) conditions.push(eq(tickets.openedByUserId, filters.openedByUserId));
 
   const query = db.select().from(tickets);
-  if (conditions.length > 0) return query.where(and(...conditions)).orderBy(desc(tickets.createdAt));
-  return query.orderBy(desc(tickets.createdAt));
+  const result = conditions.length > 0
+    ? await query.where(and(...conditions)).orderBy(desc(tickets.createdAt))
+    : await query.orderBy(desc(tickets.createdAt));
+
+  return result;
 }
 
 export async function getTicketById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1);
-  return result[0];
-}
-
-export async function updateTicket(id: number, data: Partial<InsertTicket>) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(tickets).set(data).where(eq(tickets.id, id));
+  return result[0] ?? undefined;
 }
 
 export async function getTicketStats() {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) return { open: 0, inProgress: 0, resolved: 0, closed: 0, total: 0 };
 
-  const [total, open, inProgress, resolved, closed] = await Promise.all([
-    db.select({ count: sql<number>`COUNT(*)` }).from(tickets),
-    db.select({ count: sql<number>`COUNT(*)` }).from(tickets).where(eq(tickets.status, "open")),
-    db.select({ count: sql<number>`COUNT(*)` }).from(tickets).where(eq(tickets.status, "in_progress")),
-    db.select({ count: sql<number>`COUNT(*)` }).from(tickets).where(eq(tickets.status, "resolved")),
-    db.select({ count: sql<number>`COUNT(*)` }).from(tickets).where(eq(tickets.status, "closed")),
-  ]);
-
+  const all = await db.select().from(tickets);
   return {
-    total: Number(total[0]?.count ?? 0),
-    open: Number(open[0]?.count ?? 0),
-    inProgress: Number(inProgress[0]?.count ?? 0),
-    resolved: Number(resolved[0]?.count ?? 0),
-    closed: Number(closed[0]?.count ?? 0),
+    open: all.filter((t) => t.status === "open").length,
+    inProgress: all.filter((t) => t.status === "in_progress").length,
+    waitingCorrespondent: all.filter((t) => t.status === "waiting_correspondent").length,
+    resolved: all.filter((t) => t.status === "resolved").length,
+    closed: all.filter((t) => t.status === "closed").length,
+    total: all.length,
   };
+}
+
+export async function createTicket(data: Omit<InsertTicket, 'ticketNumber'> & { slaPolicyId?: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Gerar número do ticket
+  const count = await db.select().from(tickets);
+  const ticketNumber = `TK${String(count.length + 1).padStart(6, "0")}`;
+
+  // Calcular deadline SLA
+  let resolutionDeadline: Date | undefined;
+  let responseDeadline: Date | undefined;
+  if (data.slaPolicyId) {
+    const sla = await getSlaPolicyById(data.slaPolicyId);
+    if (sla) {
+      responseDeadline = new Date(Date.now() + sla.responseTimeHours * 60 * 60 * 1000);
+      resolutionDeadline = new Date(Date.now() + sla.resolutionTimeHours * 60 * 60 * 1000);
+    }
+  }
+
+  await db.insert(tickets).values({ ...data, ticketNumber, responseDeadline, resolutionDeadline });
+  const all = await db.select().from(tickets).orderBy(desc(tickets.createdAt)).limit(1);
+  return all[0];
+}
+
+export async function updateTicket(id: number, data: Partial<InsertTicket> & { firstResponseAt?: Date; resolvedAt?: Date; closedAt?: Date }) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(tickets).set(data as any).where(eq(tickets.id, id));
 }
 
 // ─── Ticket Messages ──────────────────────────────────────────────────────────
@@ -316,6 +297,7 @@ export async function getTicketStats() {
 export async function getTicketMessages(ticketId: number, includeInternal = false) {
   const db = await getDb();
   if (!db) return [];
+
   if (includeInternal) {
     return db.select().from(ticketMessages).where(eq(ticketMessages.ticketId, ticketId)).orderBy(ticketMessages.createdAt);
   }
@@ -328,15 +310,10 @@ export async function getTicketMessages(ticketId: number, includeInternal = fals
 
 export async function createTicketMessage(data: InsertTicketMessage) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
+  if (!db) throw new Error("Database not available");
   await db.insert(ticketMessages).values(data);
-  const result = await db
-    .select()
-    .from(ticketMessages)
-    .where(and(eq(ticketMessages.ticketId, data.ticketId), eq(ticketMessages.userId, data.userId)))
-    .orderBy(desc(ticketMessages.createdAt))
-    .limit(1);
-  return result[0];
+  const all = await db.select().from(ticketMessages).orderBy(desc(ticketMessages.createdAt)).limit(1);
+  return all[0];
 }
 
 // ─── Ticket Attachments ───────────────────────────────────────────────────────
@@ -349,21 +326,18 @@ export async function getTicketAttachments(ticketId: number) {
 
 export async function createTicketAttachment(data: InsertTicketAttachment) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
+  if (!db) throw new Error("Database not available");
   await db.insert(ticketAttachments).values(data);
+  const all = await db.select().from(ticketAttachments).orderBy(desc(ticketAttachments.createdAt)).limit(1);
+  return all[0];
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
-export async function createNotification(data: InsertNotification) {
-  const db = await getDb();
-  if (!db) return;
-  await db.insert(notifications).values(data);
-}
-
 export async function getUserNotifications(userId: number, unreadOnly = false) {
   const db = await getDb();
   if (!db) return [];
+
   if (unreadOnly) {
     return db
       .select()
@@ -372,27 +346,38 @@ export async function getUserNotifications(userId: number, unreadOnly = false) {
       .orderBy(desc(notifications.createdAt))
       .limit(50);
   }
-  return db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(50);
+  return db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.userId, userId))
+    .orderBy(desc(notifications.createdAt))
+    .limit(50);
+}
+
+export async function getUnreadNotificationCount(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db
+    .select()
+    .from(notifications)
+    .where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
+  return result.length;
 }
 
 export async function markNotificationRead(id: number, userId: number) {
   const db = await getDb();
   if (!db) return;
-  await db.update(notifications).set({ read: true }).where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
+  await db.update(notifications).set({ read: true, readAt: new Date() }).where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
 }
 
 export async function markAllNotificationsRead(userId: number) {
   const db = await getDb();
   if (!db) return;
-  await db.update(notifications).set({ read: true }).where(eq(notifications.userId, userId));
+  await db.update(notifications).set({ read: true, readAt: new Date() }).where(eq(notifications.userId, userId));
 }
 
-export async function getUnreadNotificationCount(userId: number): Promise<number> {
+export async function createNotification(data: InsertNotification) {
   const db = await getDb();
-  if (!db) return 0;
-  const result = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(notifications)
-    .where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
-  return Number(result[0]?.count ?? 0);
+  if (!db) return;
+  await db.insert(notifications).values(data);
 }
