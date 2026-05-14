@@ -1,0 +1,43 @@
+{
+  "build_command": "pnpm run build",
+  "capabilities": [
+    "server",
+    "db",
+    "user"
+  ],
+  "dev_command": "pnpm run dev",
+  "env_vars": {
+    "DATABASE_URL": "mysql://44TfF7jgvXD6pcW.ca2e27a0d518:73nlxmA758TVpXWY0Qsk@gateway03.us-east-1.prod.aws.tidbcloud.com:4000/GCJZGZKxxbbeRqj9mYYLr8?ssl={\"rejectUnauthorized\":true}"
+  },
+  "experiments": [
+    "no_db_push"
+  ],
+  "git_remote": {
+    "repo_url": "s3://vida-prod-gitrepo/webdev-git/310419663029265937/GCJZGZKxxbbeRqj9mYYLr8",
+    "access_key_id": "ASIAZV3A2ECZGIR4QHMI",
+    "secret_access_key": "j4vP+4/yz8BVRrql/Exm+YXnMq9cXP3T57qrIu0K",
+    "session_token": "IQoJb3JpZ2luX2VjEJr//////////wEaCXVzLWVhc3QtMSJHMEUCICS3M2JGYuaeeKPK3TU+2JkI+1wTj2IpOGG0mUACv5YIAiEAinW0NHmvC5E75HxljzeUzzoRJKbkpQNzYhG+SNU9J8Uq9gMIYhAEGgw2NjUzODYwOTg4NjYiDAgRgjgMkRmQ9bXBSSrTA5U5UWJojbX2quWXPayPE4AybtcA0PH3eOW0xRIcuSGTxppXwjeyOD85wZYzU4LMvxrLwKbHhCY0i5nLtG+AoWSIU0IOkU8F06RGq9Om50HZ7uxTzkUlwJVKYousVvFiXDvMeHyhe29T3cKpi3ZKRpzYV/Xmvdm2XvdritAGx5KECsLYMmAx3j2d6D06YLF4ltWH30rbZedIz7Z2docgSRCXhfmlHEKoCk5btI7LGAeRDgiMe3HeqP5CG9q58gJSRu9bwekEMzv+UrgV3vzHhFyliaWRBAWVRwSC2tnS1Ox4NBWeKuKWZKI5v/genD1NgQKGtYuTLy4PInJNwLrr7EaZ/qpm3yTJbjlqZAxHtdqG/1gQcXEQ9rQNL3HkipV6LG69MwSySjGuQbKpKlVchD9n+KKkwk5/5vHAPov2if267/KWCegSxp7NFTYQezvdEEJuliG/IgbD7ncOaNxJqFARrcMd1aMQu76Y9a43/2xM4P7bXFD84l/CQ/MzIcPcvs/zC4MexGGIEhdl6AfHv8Y2tL8aMp/6Qzh1BYcwqO61FaHwFIRWK/2BvB88JHGjs+RiRlXYPkitWt+MpzlDr8Rugd8u+wyGQxwLw3yZZ4rmD3/dMKaJmNAGOp0B2jTM6sMwN6rEtKo7VLrXjUR/PvTSouYVIIRV6mYLDRT3JWh3NnCz4YZIt+Vyi+AULAsjeAA7G03yKE3EfDYrcz7gsam5gSlvuudNRMLnIvXJKBR+iaPbUaX+MzdrNP4HKRDV2fpSXvDK7nqmh8L/v7e/3P3Ejr+ZzJXgNDRJZO3Wv1GwjK5x5bM1WujtVGVyioxfzAZwO2dtg1PC3g==",
+    "expiration": "2026-05-15T05:21:42.000Z"
+  },
+  "name": "parcred-helpdesk",
+  "path": "/home/ubuntu/parcred-helpdesk",
+  "port": 3000,
+  "secrets": {
+    "BUILT_IN_FORGE_API_KEY": "XPGAkjHjUPQ2FKZYHV64ia",
+    "BUILT_IN_FORGE_API_URL": "https://forge.manus.ai",
+    "JWT_SECRET": "agdpvAMPfToQUK7MGvGKW6",
+    "OAUTH_SERVER_URL": "https://api.manus.im",
+    "OWNER_NAME": "Ricardo Gossi",
+    "OWNER_OPEN_ID": "hTXsp6Hcn7xu8joNcqGPyk",
+    "VITE_ANALYTICS_ENDPOINT": "https://manus-analytics.com",
+    "VITE_ANALYTICS_WEBSITE_ID": "52f2da01-acc6-4ee9-91b7-14e37288dc27",
+    "VITE_APP_ID": "GCJZGZKxxbbeRqj9mYYLr8",
+    "VITE_APP_LOGO": "",
+    "VITE_APP_TITLE": "Parcred Help Desk",
+    "VITE_FRONTEND_FORGE_API_KEY": "LGx68kUknkUc9nkNj9nNyX",
+    "VITE_FRONTEND_FORGE_API_URL": "https://forge.manus.ai",
+    "VITE_OAUTH_PORTAL_URL": "https://manus.im"
+  },
+  "template_id": "web-db-user",
+  "test_command": "pnpm test"
+}
