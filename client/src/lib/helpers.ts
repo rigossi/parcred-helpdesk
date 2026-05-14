@@ -39,7 +39,7 @@ export const CORRESPONDENT_STATUS_LABELS: Record<string, string> = {
 export function getPriorityClass(priority: string): string {
   const map: Record<string, string> = {
     low: "bg-slate-100 text-slate-700 border-slate-200",
-    medium: "bg-blue-100 text-blue-700 border-blue-200",
+    medium: "bg-emerald-100 text-emerald-700 border-emerald-200",
     high: "bg-orange-100 text-orange-700 border-orange-200",
     critical: "bg-red-100 text-red-700 border-red-200",
   };
@@ -48,7 +48,7 @@ export function getPriorityClass(priority: string): string {
 
 export function getStatusClass(status: string): string {
   const map: Record<string, string> = {
-    open: "bg-blue-100 text-blue-800 border-blue-200",
+    open: "bg-teal-100 text-teal-800 border-teal-200",
     in_progress: "bg-amber-100 text-amber-800 border-amber-200",
     waiting_correspondent: "bg-purple-100 text-purple-800 border-purple-200",
     resolved: "bg-green-100 text-green-800 border-green-200",

@@ -105,7 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[oklch(0.22_0.06_255)] to-[oklch(0.35_0.12_255)]">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[oklch(0.14_0.07_150)] to-[oklch(0.28_0.12_150)]">
         <div className="bg-white rounded-2xl shadow-2xl p-10 max-w-md w-full mx-4 flex flex-col items-center gap-6">
           <div className="flex flex-col items-center gap-2">
             <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-2">

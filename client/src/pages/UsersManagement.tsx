@@ -53,7 +53,7 @@ export default function UsersManagement() {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "Total de Usuários", value: stats.total, icon: Users, color: "text-blue-600 bg-blue-50" },
+            { label: "Total de Usuários", value: stats.total, icon: Users, color: "text-emerald-700 bg-emerald-50" },
             { label: "Administradores", value: stats.admins, icon: ShieldCheck, color: "text-red-600 bg-red-50" },
             { label: "Agentes de Suporte", value: stats.agents, icon: Shield, color: "text-primary bg-primary/10" },
             { label: "Correspondentes", value: stats.correspondents, icon: User, color: "text-green-600 bg-green-50" },

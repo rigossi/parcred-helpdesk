@@ -159,7 +159,7 @@ export default function NewTicket() {
               <div className="grid grid-cols-4 gap-2">
                 {[
                   { value: "low", label: "Baixa", color: "border-slate-300 data-[selected=true]:bg-slate-100 data-[selected=true]:border-slate-500" },
-                  { value: "medium", label: "Média", color: "border-blue-300 data-[selected=true]:bg-blue-100 data-[selected=true]:border-blue-500" },
+                  { value: "medium", label: "Média", color: "border-emerald-300 data-[selected=true]:bg-emerald-100 data-[selected=true]:border-emerald-500" },
                   { value: "high", label: "Alta", color: "border-orange-300 data-[selected=true]:bg-orange-100 data-[selected=true]:border-orange-500" },
                   { value: "critical", label: "Crítica", color: "border-red-300 data-[selected=true]:bg-red-100 data-[selected=true]:border-red-500" },
                 ].map((p) => (

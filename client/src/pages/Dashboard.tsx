@@ -59,7 +59,7 @@ function AdminDashboard() {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total de Chamados", value: stats?.total ?? 0, icon: ClipboardList, color: "text-blue-600 bg-blue-50", sub: "todos os status" },
+          { label: "Total de Chamados", value: stats?.total ?? 0, icon: ClipboardList, color: "text-emerald-700 bg-emerald-50", sub: "todos os status" },
           { label: "Em Aberto", value: stats?.open ?? 0, icon: Clock, color: "text-amber-600 bg-amber-50", sub: "aguardando atendimento" },
           { label: "Em Andamento", value: stats?.inProgress ?? 0, icon: Headphones, color: "text-primary bg-primary/10", sub: "sendo atendidos" },
           { label: "Resolvidos", value: (stats?.resolved ?? 0) + (stats?.closed ?? 0), icon: CheckCircle2, color: "text-green-600 bg-green-50", sub: "concluídos" },
@@ -98,7 +98,7 @@ function AdminDashboard() {
             <Progress value={resolvedRate} className="h-2" />
             <div className="grid grid-cols-2 gap-2 text-xs">
               {[
-                { label: "Abertos", value: stats?.open ?? 0, color: "text-blue-600" },
+                { label: "Abertos", value: stats?.open ?? 0, color: "text-teal-700" },
                 { label: "Em Andamento", value: stats?.inProgress ?? 0, color: "text-amber-600" },
                 { label: "Resolvidos", value: stats?.resolved ?? 0, color: "text-green-600" },
                 { label: "Encerrados", value: stats?.closed ?? 0, color: "text-gray-600" },
@@ -252,7 +252,7 @@ function AgentDashboard() {
           { label: "Meus chamados ativos", value: myOpen.length, icon: Headphones, color: "text-primary bg-primary/10" },
           { label: "Sem atribuição", value: unassigned.length, icon: Clock, color: "text-amber-600 bg-amber-50" },
           { label: "Alertas de SLA", value: slaAlerts.length, icon: AlertTriangle, color: slaAlerts.length > 0 ? "text-red-600 bg-red-50" : "text-green-600 bg-green-50" },
-          { label: "Total na fila", value: (allTickets as any[]).filter((t: any) => t.status !== "closed").length, icon: ClipboardList, color: "text-blue-600 bg-blue-50" },
+          { label: "Total na fila", value: (allTickets as any[]).filter((t: any) => t.status !== "closed").length, icon: ClipboardList, color: "text-emerald-700 bg-emerald-50" },
         ].map((kpi) => (
           <Card key={kpi.label} className="border shadow-sm">
             <CardContent className="p-5">
@@ -356,7 +356,7 @@ function CorrespondentDashboard() {
 
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Abertos", value: open, icon: Clock, color: "text-blue-600 bg-blue-50" },
+          { label: "Abertos", value: open, icon: Clock, color: "text-teal-700 bg-teal-50" },
           { label: "Em Andamento", value: inProgress, icon: Headphones, color: "text-amber-600 bg-amber-50" },
           { label: "Resolvidos", value: resolved, icon: CheckCircle2, color: "text-green-600 bg-green-50" },
         ].map((kpi) => (

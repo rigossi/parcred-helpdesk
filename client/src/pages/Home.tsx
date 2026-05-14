@@ -17,7 +17,7 @@ export default function Home() {
   if (loading) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[oklch(0.18_0.06_255)] via-[oklch(0.28_0.10_255)] to-[oklch(0.38_0.14_255)] flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-[oklch(0.14_0.07_150)] via-[oklch(0.22_0.10_150)] to-[oklch(0.34_0.14_150)] flex flex-col">
       {/* Header */}
       <header className="px-6 py-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -58,7 +58,7 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => { window.location.href = getLoginUrl(); }}
-                className="bg-white text-[oklch(0.28_0.10_255)] font-semibold px-8 py-3.5 rounded-xl hover:bg-white/90 transition-all shadow-lg hover:shadow-xl active:scale-[0.97] text-base"
+                className="bg-white text-[oklch(0.22_0.10_150)] font-semibold px-8 py-3.5 rounded-xl hover:bg-white/90 transition-all shadow-lg hover:shadow-xl active:scale-[0.97] text-base"
               >
                 Acessar o sistema
               </button>
