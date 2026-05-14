@@ -1,8 +1,9 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
-import { ShieldCheck, Headphones, Clock, Users } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -17,101 +18,61 @@ export default function Home() {
   if (loading) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[oklch(0.14_0.07_150)] via-[oklch(0.22_0.10_150)] to-[oklch(0.34_0.14_150)] flex flex-col">
-      {/* Header */}
-      <header className="px-6 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center">
-            <ShieldCheck className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-white flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        {/* Logo / marca */}
+        <div className="flex flex-col items-center gap-3 mb-8">
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-md"
+            style={{ background: "oklch(0.21 0.07 150)" }}
+          >
+            <ShieldCheck className="w-8 h-8 text-white" />
           </div>
-          <div>
-            <span className="font-bold text-white text-lg" style={{ fontFamily: "var(--font-display)" }}>
-              Parcred
-            </span>
-            <span className="text-white/50 text-sm ml-2">Help Desk</span>
-          </div>
-        </div>
-        <span className="text-white/40 text-sm hidden sm:block">Grupo Angar</span>
-      </header>
-
-      {/* Hero */}
-      <main className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="max-w-5xl w-full grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left: copy */}
-          <div className="flex flex-col gap-6">
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur rounded-full px-4 py-1.5 w-fit">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-              <span className="text-white/80 text-xs font-medium">Sistema online</span>
-            </div>
-
+          <div className="text-center">
             <h1
-              className="text-4xl lg:text-5xl font-bold text-white leading-tight"
+              className="text-2xl font-bold text-foreground tracking-tight"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              Suporte ágil para correspondentes bancários
+              Parcred Help Desk
             </h1>
-
-            <p className="text-white/70 text-lg leading-relaxed">
-              Plataforma centralizada de atendimento técnico, comercial e financeiro para os correspondentes bancários da Parcred Brasil.
+            <p className="text-sm text-muted-foreground mt-1">
+              Grupo Angar · Suporte aos Correspondentes
             </p>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => { window.location.href = getLoginUrl(); }}
-                className="bg-white text-[oklch(0.22_0.10_150)] font-semibold px-8 py-3.5 rounded-xl hover:bg-white/90 transition-all shadow-lg hover:shadow-xl active:scale-[0.97] text-base"
-              >
-                Acessar o sistema
-              </button>
-            </div>
-          </div>
-
-          {/* Right: feature cards */}
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              {
-                icon: Headphones,
-                title: "Suporte Técnico",
-                desc: "Resolução de problemas em sistemas e processos de crédito consignado",
-              },
-              {
-                icon: Users,
-                title: "Suporte Comercial",
-                desc: "Atendimento para contratos, relacionamento e demandas comerciais",
-              },
-              {
-                icon: Clock,
-                title: "SLA Garantido",
-                desc: "Prazos de resposta e resolução monitorados automaticamente",
-              },
-              {
-                icon: ShieldCheck,
-                title: "Suporte Financeiro",
-                desc: "Acompanhamento de pagamentos, repasses e conciliações",
-              },
-            ].map((feat) => (
-              <div
-                key={feat.title}
-                className="bg-white/10 backdrop-blur rounded-2xl p-5 flex flex-col gap-3 border border-white/10 hover:bg-white/15 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
-                  <feat.icon className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-white text-sm">{feat.title}</h3>
-                  <p className="text-white/60 text-xs mt-1 leading-relaxed">{feat.desc}</p>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
-      </main>
 
-      {/* Footer */}
-      <footer className="px-6 py-4 border-t border-white/10">
-        <p className="text-white/30 text-xs text-center">
-          © {new Date().getFullYear()} Parcred Brasil · Grupo Angar · Todos os direitos reservados
+        {/* Card de login */}
+        <div className="bg-white border border-border rounded-2xl shadow-sm p-8 flex flex-col gap-5">
+          <div className="text-center">
+            <h2
+              className="text-base font-semibold text-foreground"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              Acesse sua conta
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Use suas credenciais para entrar no sistema
+            </p>
+          </div>
+
+          <Button
+            size="lg"
+            className="w-full font-semibold shadow-sm"
+            style={{ background: "oklch(0.40 0.16 150)" }}
+            onClick={() => { window.location.href = getLoginUrl(); }}
+          >
+            Entrar no sistema
+          </Button>
+
+          <p className="text-xs text-muted-foreground text-center">
+            Ao acessar, você concorda com os termos de uso da plataforma.
+          </p>
+        </div>
+
+        <p className="text-xs text-muted-foreground text-center mt-6">
+          © {new Date().getFullYear()} Parcred Brasil · Todos os direitos reservados
         </p>
-      </footer>
+      </div>
     </div>
   );
 }
