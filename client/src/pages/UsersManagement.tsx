@@ -2,15 +2,18 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime, ROLE_LABELS } from "@/lib/helpers";
 import { trpc } from "@/lib/trpc";
-import { Shield, ShieldCheck, User, Users } from "lucide-react";
+import { Eye, EyeOff, Loader2, Plus, Shield, ShieldCheck, User, Users } from "lucide-react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
 
 function getRoleBadgeVariant(role: string): "default" | "secondary" | "outline" | "destructive" {
   if (role === "admin") return "destructive";
@@ -18,6 +21,8 @@ function getRoleBadgeVariant(role: string): "default" | "secondary" | "outline" 
   if (role === "correspondent") return "secondary";
   return "outline";
 }
+
+const EMPTY_FORM = { name: "", email: "", password: "", role: "user" as string };
 
 export default function UsersManagement() {
   const { user } = useAuth();
@@ -28,10 +33,25 @@ export default function UsersManagement() {
   }, [user]);
 
   const { data: users = [], refetch } = trpc.admin.users.useQuery();
+
   const updateRoleMut = trpc.admin.updateUserRole.useMutation({
     onSuccess: () => { refetch(); toast.success("Perfil atualizado com sucesso."); },
     onError: () => toast.error("Erro ao atualizar perfil."),
   });
+
+  const createUserMut = trpc.admin.createUser.useMutation({
+    onSuccess: () => {
+      refetch();
+      toast.success("Usuário criado com sucesso.");
+      setDialogOpen(false);
+      setForm(EMPTY_FORM);
+    },
+    onError: (err) => toast.error(err.message ?? "Erro ao criar usuário."),
+  });
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [showPassword, setShowPassword] = useState(false);
 
   const stats = {
     total: (users as any[]).length,
@@ -40,14 +60,27 @@ export default function UsersManagement() {
     correspondents: (users as any[]).filter((u: any) => u.role === "correspondent").length,
   };
 
+  function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name || !form.email || !form.password) return toast.error("Preencha todos os campos.");
+    createUserMut.mutate({ name: form.name, email: form.email, password: form.password, role: form.role as any });
+  }
+
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
-            Gestão de Usuários
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">Gerencie os perfis de acesso dos usuários do sistema</p>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+              Gestão de Usuários
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">Gerencie os perfis de acesso dos usuários do sistema</p>
+          </div>
+          <Button onClick={() => { setForm(EMPTY_FORM); setDialogOpen(true); }} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Novo Usuário
+          </Button>
         </div>
 
         {/* Stats */}
@@ -142,6 +175,83 @@ export default function UsersManagement() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog: Novo Usuário */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Novo Usuário</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreate} className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="new-name">Nome completo</Label>
+              <Input
+                id="new-name"
+                placeholder="João da Silva"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-email">E-mail</Label>
+              <Input
+                id="new-email"
+                type="email"
+                placeholder="joao@email.com"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-password">Senha</Label>
+              <div className="relative">
+                <Input
+                  id="new-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Mínimo 6 caracteres"
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  required
+                  minLength={6}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-role">Perfil de acesso</Label>
+              <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
+                <SelectTrigger id="new-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Usuário</SelectItem>
+                  <SelectItem value="correspondent">Correspondente Bancário</SelectItem>
+                  <SelectItem value="agent">Agente de Suporte</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={createUserMut.isPending}>
+                {createUserMut.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Criando…</> : "Criar usuário"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

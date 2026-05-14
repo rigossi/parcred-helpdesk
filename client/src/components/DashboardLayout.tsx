@@ -71,14 +71,12 @@ function getMenuItems(role: string): MenuItem[] {
     return [
       { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard", section: "Principal" },
       { icon: ClipboardList, label: "Fila de Chamados", path: "/tickets", section: "Atendimento" },
-      { icon: BookUser, label: "Correspondentes", path: "/correspondents", section: "Consulta" },
     ];
   }
-  // correspondent
+  // correspondent / user
   return [
     { icon: Gauge, label: "Meu Painel", path: "/dashboard", section: "Principal" },
     { icon: ClipboardList, label: "Meus Chamados", path: "/tickets", section: "Chamados" },
-    { icon: PlusCircle, label: "Abrir Chamado", path: "/tickets/new", section: "Chamados" },
   ];
 }
 
@@ -226,6 +224,17 @@ function DashboardLayoutContent({
               )}
             </div>
           </SidebarHeader>
+
+          {/* Botão Novo Chamado — visível para todos os perfis */}
+          <div className="px-3 pt-3 pb-1">
+            <button
+              onClick={() => setLocation("/tickets/new")}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-sidebar-primary text-sidebar-primary-foreground font-semibold py-2.5 px-4 shadow-md hover:opacity-90 active:scale-[0.97] transition-all text-sm"
+            >
+              <PlusCircle className="h-4 w-4 shrink-0" />
+              {!isCollapsed && <span>Abrir Chamado</span>}
+            </button>
+          </div>
 
           {/* Menu */}
           <SidebarContent className="gap-0 py-2">

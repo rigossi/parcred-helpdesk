@@ -65,3 +65,9 @@
 - [x] Reescrever useAuth hook sem dependência do Manus
 - [x] Criar usuário admin padrão via seed SQL
 - [x] Atualizar DashboardLayout para usar novo useAuth
+
+## Melhorias v2
+- [x] Endpoint e formulário de criação de novo usuário na tela de gestão de usuários
+- [x] Restringir itens de menu da sidebar: cadastros e administração visíveis apenas para admin
+- [x] Botão "Novo Chamado" em destaque na sidebar (visível para todos os perfis)
+- [x] Favicon de engrenagem verde
