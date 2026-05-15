@@ -30,6 +30,9 @@ vi.mock("./db", async (importOriginal) => {
     updateTicket: vi.fn().mockResolvedValue({ id: 1 }),
     createNotification: vi.fn().mockResolvedValue({ id: 1 }),
     getAllUsers: vi.fn().mockResolvedValue([]),
+    createTicketMessage: vi.fn().mockResolvedValue({ id: 99, ticketId: 1, userId: 1, message: "test", isInternal: false, createdAt: new Date() }),
+    createTicketAttachment: vi.fn().mockResolvedValue({ id: 10 }),
+    getTicketMessages: vi.fn().mockResolvedValue([]),
   };
 });
 
@@ -94,6 +97,42 @@ function createCorrespondentContext(): TrpcContext {
     res: { clearCookie: vi.fn() } as unknown as TrpcContext["res"],
   };
 }
+
+describe("ticketMessages.create com anexos", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("cria mensagem sem anexos normalmente", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const { createTicketMessage } = await import("./db");
+
+    await caller.ticketMessages.create({ ticketId: 1, message: "Olá, estamos verificando." });
+
+    expect(createTicketMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ ticketId: 1, message: "Olá, estamos verificando." })
+    );
+  });
+
+  it("cria mensagem com anexos e vincula ao messageId", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const { createTicketAttachment } = await import("./db");
+
+    await caller.ticketMessages.create({
+      ticketId: 1,
+      message: "Segue o arquivo.",
+      attachments: [{ fileName: "doc.pdf", fileKey: "tickets/doc.pdf", fileUrl: "/manus-storage/doc.pdf", mimeType: "application/pdf", fileSize: 12345 }],
+    });
+
+    expect(createTicketAttachment).toHaveBeenCalledWith(
+      expect.objectContaining({ fileName: "doc.pdf", ticketId: 1 })
+    );
+  });
+});
 
 describe("tickets.update", () => {
   beforeEach(() => {

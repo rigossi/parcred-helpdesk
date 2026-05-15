@@ -27,6 +27,10 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
+  Download,
+  File,
+  FileImage,
+  FileText,
   Lock,
   MessageSquare,
   Paperclip,
@@ -34,10 +38,53 @@ import {
   Timer,
   User,
   UserCheck,
+  X,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
+
+// ─── Helpers de arquivo ───────────────────────────────────────────────────────
+
+function getFileIcon(mimeType?: string | null) {
+  if (!mimeType) return <File className="h-4 w-4" />;
+  if (mimeType.startsWith("image/")) return <FileImage className="h-4 w-4" />;
+  if (mimeType.includes("pdf") || mimeType.includes("text")) return <FileText className="h-4 w-4" />;
+  return <File className="h-4 w-4" />;
+}
+
+function formatFileSize(bytes?: number | null) {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// ─── Componente de lista de anexos ────────────────────────────────────────────
+
+function AttachmentList({ attachments }: { attachments: any[] }) {
+  if (!attachments || attachments.length === 0) return null;
+  return (
+    <div className="mt-2 space-y-1">
+      {attachments.map((att: any) => (
+        <a
+          key={att.id}
+          href={att.fileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-xs text-primary hover:underline bg-primary/5 border border-primary/20 rounded px-2 py-1.5 w-fit max-w-full"
+        >
+          {getFileIcon(att.mimeType)}
+          <span className="truncate max-w-[200px]">{att.fileName}</span>
+          {att.fileSize && <span className="text-muted-foreground shrink-0">{formatFileSize(att.fileSize)}</span>}
+          <Download className="h-3 w-3 shrink-0 text-muted-foreground" />
+        </a>
+      ))}
+    </div>
+  );
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function TicketDetail() {
   const { user } = useAuth();
@@ -47,7 +94,7 @@ export default function TicketDetail() {
 
   const { data: ticket, refetch: refetchTicket } = trpc.tickets.byId.useQuery({ id: ticketId }, { enabled: !!ticketId });
   const { data: messages = [], refetch: refetchMessages } = trpc.ticketMessages.list.useQuery({ ticketId }, { enabled: !!ticketId });
-  const { data: attachments = [] } = trpc.ticketAttachments.list.useQuery({ ticketId }, { enabled: !!ticketId });
+  const { data: allAttachments = [], refetch: refetchAttachments } = trpc.ticketAttachments.list.useQuery({ ticketId }, { enabled: !!ticketId });
   const { data: departments = [] } = trpc.departments.list.useQuery({});
   const { data: agents = [] } = trpc.admin.users.useQuery(undefined, { enabled: user?.role === "admin" || user?.role === "agent" });
   const { data: correspondent } = trpc.correspondents.byId.useQuery(
@@ -61,8 +108,19 @@ export default function TicketDetail() {
   const [assignTo, setAssignTo] = useState("");
   const [newPriority, setNewPriority] = useState("");
 
+  // Estado de upload de anexos na caixa de resposta
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const sendMessageMut = trpc.ticketMessages.create.useMutation({
-    onSuccess: () => { setMessage(""); refetchMessages(); toast.success("Mensagem enviada."); },
+    onSuccess: () => {
+      setMessage("");
+      setPendingFiles([]);
+      refetchMessages();
+      refetchAttachments();
+      toast.success("Mensagem enviada.");
+    },
     onError: (e) => toast.error("Erro: " + e.message),
   });
 
@@ -97,18 +155,88 @@ export default function TicketDetail() {
   const getDeptName = (id: number) => (departments as any[]).find((d: any) => d.id === id)?.name ?? "—";
   const getAgentName = (id: number | null | undefined) => {
     if (!id) return "Não atribuído";
-    // Tenta primeiro na lista de agentes (disponível para admin/agent)
     const a = (agents as any[]).find((u: any) => u.id === id);
     if (a?.name) return a.name;
-    // Fallback: usa o nome enriquecido retornado diretamente pelo backend
     if (ticket?.assignedUserName) return ticket.assignedUserName;
     return "—";
   };
 
   const atRisk = isSlaAtRisk(ticket.resolutionDeadline);
   const breached = isSlaBreached(ticket.resolutionDeadline) && ticket.status !== "resolved" && ticket.status !== "closed";
-
   const staffAgents = (agents as any[]).filter((u: any) => u.role === "agent" || u.role === "admin");
+
+  // Separar anexos: os da abertura (sem messageId) e os vinculados a mensagens
+  const openingAttachments = (allAttachments as any[]).filter((a: any) => !a.messageId);
+  const attachmentsByMessage = (allAttachments as any[]).reduce((acc: Record<number, any[]>, att: any) => {
+    if (att.messageId) {
+      if (!acc[att.messageId]) acc[att.messageId] = [];
+      acc[att.messageId].push(att);
+    }
+    return acc;
+  }, {} as Record<number, any[]>);
+
+  // Upload de arquivos pendentes
+  async function uploadPendingFiles(): Promise<{ fileName: string; fileKey: string; fileUrl: string; mimeType?: string; fileSize?: number }[]> {
+    const uploaded: { fileName: string; fileKey: string; fileUrl: string; mimeType?: string; fileSize?: number }[] = [];
+    for (const file of pendingFiles) {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!res.ok) throw new Error(`Falha ao enviar ${file.name}`);
+      const data = await res.json();
+      uploaded.push({ fileName: file.name, fileKey: data.key, fileUrl: data.url, mimeType: file.type || undefined, fileSize: file.size });
+    }
+    return uploaded;
+  }
+
+  async function handleSendMessage() {
+    if (!message.trim() && pendingFiles.length === 0) {
+      return toast.error("Escreva uma mensagem ou adicione um anexo.");
+    }
+    if (!message.trim() && pendingFiles.length > 0) {
+      // Permite enviar só anexo com mensagem padrão
+    }
+    setIsUploading(true);
+    try {
+      let uploadedAttachments: { fileName: string; fileKey: string; fileUrl: string; mimeType?: string; fileSize?: number }[] = [];
+      if (pendingFiles.length > 0) {
+        uploadedAttachments = await uploadPendingFiles();
+      }
+      sendMessageMut.mutate({
+        ticketId,
+        message: message.trim() || "(Anexo)",
+        isInternal,
+        attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
+      });
+    } catch (err: any) {
+      toast.error("Erro ao enviar arquivo: " + (err?.message ?? "Tente novamente."));
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    const MAX_SIZE = 10 * 1024 * 1024;
+    const oversized = files.filter(f => f.size > MAX_SIZE);
+    if (oversized.length > 0) {
+      toast.error(`Arquivo(s) muito grande(s): máximo 10 MB por arquivo.`);
+      return;
+    }
+    if (pendingFiles.length + files.length > 5) {
+      toast.error("Máximo de 5 anexos por mensagem.");
+      return;
+    }
+    setPendingFiles(prev => [...prev, ...files]);
+    // Limpar o input para permitir selecionar o mesmo arquivo novamente
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removePendingFile(index: number) {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  }
+
+  const isSending = sendMessageMut.isPending || isUploading;
 
   return (
     <DashboardLayout>
@@ -151,8 +279,17 @@ export default function TicketDetail() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Descrição</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <p className="text-foreground whitespace-pre-wrap leading-relaxed">{ticket.description}</p>
+                {/* Anexos da abertura do chamado */}
+                {openingAttachments.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium mb-1.5 flex items-center gap-1">
+                      <Paperclip className="h-3.5 w-3.5" /> Anexos da abertura
+                    </p>
+                    <AttachmentList attachments={openingAttachments} />
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -188,6 +325,8 @@ export default function TicketDetail() {
                         </div>
                         <div className={`p-3 rounded-lg text-sm leading-relaxed ${msg.isInternal ? "bg-amber-50 border border-amber-200" : "bg-muted/40 border"}`}>
                           {msg.message}
+                          {/* Anexos vinculados a esta mensagem */}
+                          <AttachmentList attachments={attachmentsByMessage[msg.id] ?? []} />
                         </div>
                       </div>
                     </div>
@@ -205,25 +344,71 @@ export default function TicketDetail() {
                       rows={4}
                       className={`resize-none ${isInternal ? "border-amber-300 bg-amber-50/50" : ""}`}
                     />
-                    <div className="flex items-center justify-between">
-                      {isStaff && (
-                        <div className="flex items-center gap-2">
-                          <Switch id="internal" checked={isInternal} onCheckedChange={setIsInternal} />
-                          <Label htmlFor="internal" className="text-sm text-muted-foreground cursor-pointer">
-                            Nota interna
-                          </Label>
-                        </div>
-                      )}
+
+                    {/* Arquivos pendentes */}
+                    {pendingFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {pendingFiles.map((file, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-xs bg-muted border rounded px-2 py-1 max-w-[200px]">
+                            {getFileIcon(file.type)}
+                            <span className="truncate">{file.name}</span>
+                            <span className="text-muted-foreground shrink-0">{formatFileSize(file.size)}</span>
+                            <button
+                              type="button"
+                              onClick={() => removePendingFile(i)}
+                              className="text-muted-foreground hover:text-destructive shrink-0 ml-0.5"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        {isStaff && (
+                          <div className="flex items-center gap-2">
+                            <Switch id="internal" checked={isInternal} onCheckedChange={setIsInternal} />
+                            <Label htmlFor="internal" className="text-sm text-muted-foreground cursor-pointer">
+                              Nota interna
+                            </Label>
+                          </div>
+                        )}
+                        {/* Botão de anexar arquivo */}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          className="hidden"
+                          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
+                          onChange={handleFileSelect}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 h-8 text-xs"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isSending || pendingFiles.length >= 5}
+                          title="Adicionar anexo (máx. 5 arquivos, 10 MB cada)"
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                          Anexar
+                          {pendingFiles.length > 0 && (
+                            <span className="bg-primary text-primary-foreground rounded-full w-4 h-4 text-[10px] flex items-center justify-center">
+                              {pendingFiles.length}
+                            </span>
+                          )}
+                        </Button>
+                      </div>
                       <Button
-                        onClick={() => {
-                          if (!message.trim()) return toast.error("Escreva uma mensagem.");
-                          sendMessageMut.mutate({ ticketId, message, isInternal });
-                        }}
-                        disabled={sendMessageMut.isPending}
-                        className="gap-2 ml-auto"
+                        onClick={handleSendMessage}
+                        disabled={isSending}
+                        className="gap-2"
                       >
                         <Send className="h-4 w-4" />
-                        Enviar
+                        {isSending ? "Enviando..." : "Enviar"}
                       </Button>
                     </div>
                   </div>

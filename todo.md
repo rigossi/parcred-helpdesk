@@ -108,3 +108,10 @@
 - [x] Seletor de status não mostrava o status atual do ticket (sempre exibia placeholder vazio)
 - [x] Botão de salvar status ficava habilitado mesmo sem mudança (agora desabilitado quando status é igual ao atual)
 - [x] Cache da lista de tickets não era invalidado após atualização de status
+
+## Anexos em Mensagens (Interações do Chamado)
+- [x] Adicionar botão de anexar arquivo na caixa de resposta do TicketDetail
+- [x] Upload do arquivo via /api/upload ao enviar a mensagem
+- [x] Vincular o anexo à mensagem criada (messageId na tabela ticket_attachments)
+- [x] Exibir anexos vinculados a cada mensagem no histórico com link para download
+- [x] Exibir anexos da abertura do chamado (sem messageId) em seção separada no detalhe

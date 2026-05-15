@@ -434,12 +434,36 @@ export const appRouter = router({
       }),
 
     create: protectedProcedure
-      .input(z.object({ ticketId: z.number(), message: z.string().min(1), isInternal: z.boolean().optional() }))
+      .input(z.object({
+        ticketId: z.number(),
+        message: z.string().min(1),
+        isInternal: z.boolean().optional(),
+        attachments: z.array(z.object({
+          fileName: z.string(),
+          fileKey: z.string(),
+          fileUrl: z.string(),
+          mimeType: z.string().optional(),
+          fileSize: z.number().optional(),
+        })).optional(),
+      }))
       .mutation(async ({ ctx, input }) => {
         const ticket = await getTicketById(input.ticketId);
         if (!ticket) throw new TRPCError({ code: "NOT_FOUND" });
+        // Correspondente só pode interagir com seus próprios chamados
+        if (ctx.user.role === "correspondent") {
+          const correspondent = await getCorrespondentByUserId(ctx.user.id);
+          if (!correspondent || ticket.correspondentId !== correspondent.id) {
+            throw new TRPCError({ code: "FORBIDDEN" });
+          }
+        }
         if (ctx.user.role === "correspondent" && input.isInternal) throw new TRPCError({ code: "FORBIDDEN" });
         const msg = await createTicketMessage({ ticketId: input.ticketId, userId: ctx.user.id, message: input.message, isInternal: input.isInternal ?? false });
+        // Salvar anexos vinculados à mensagem
+        if (input.attachments && input.attachments.length > 0 && msg) {
+          for (const att of input.attachments) {
+            await createTicketAttachment({ ...att, ticketId: input.ticketId, messageId: msg.id, uploadedByUserId: ctx.user.id });
+          }
+        }
         if ((ctx.user.role === "agent" || ctx.user.role === "admin") && !ticket.firstResponseAt) {
           await updateTicket(input.ticketId, { firstResponseAt: new Date() });
         }
@@ -461,7 +485,16 @@ export const appRouter = router({
   ticketAttachments: router({
     list: protectedProcedure
       .input(z.object({ ticketId: z.number() }))
-      .query(({ input }) => getTicketAttachments(input.ticketId)),
+      .query(async ({ ctx, input }) => {
+        // Correspondente só pode ver anexos dos seus próprios chamados
+        if (ctx.user.role === "correspondent") {
+          const ticket = await getTicketById(input.ticketId);
+          if (!ticket) return [];
+          const correspondent = await getCorrespondentByUserId(ctx.user.id);
+          if (!correspondent || ticket.correspondentId !== correspondent.id) return [];
+        }
+        return getTicketAttachments(input.ticketId);
+      }),
 
     create: protectedProcedure
       .input(z.object({ ticketId: z.number(), messageId: z.number().optional(), fileName: z.string(), fileKey: z.string(), fileUrl: z.string(), mimeType: z.string().optional(), fileSize: z.number().optional() }))
