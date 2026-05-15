@@ -66,9 +66,16 @@ export default function TicketDetail() {
     onError: (e) => toast.error("Erro: " + e.message),
   });
 
+  const utils = trpc.useUtils();
+
   const updateTicketMut = trpc.tickets.update.useMutation({
-    onSuccess: () => { refetchTicket(); toast.success("Chamado atualizado."); setNewStatus(""); },
-    onError: (e) => toast.error("Erro: " + e.message),
+    onSuccess: () => {
+      refetchTicket();
+      utils.tickets.list.invalidate();
+      toast.success("Chamado atualizado.");
+      setNewStatus("");
+    },
+    onError: (e) => toast.error("Erro ao atualizar: " + e.message),
   });
 
   const assignMut = trpc.tickets.assign.useMutation({
@@ -311,9 +318,12 @@ export default function TicketDetail() {
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Atualizar status</Label>
                     <div className="flex gap-2">
-                      <Select value={newStatus} onValueChange={setNewStatus}>
+                      <Select
+                        value={newStatus || ticket.status}
+                        onValueChange={(val) => setNewStatus(val)}
+                      >
                         <SelectTrigger className="flex-1 h-8 text-xs">
-                          <SelectValue placeholder="Selecione o status" />
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="open">Aberto</SelectItem>
@@ -327,8 +337,9 @@ export default function TicketDetail() {
                         size="sm"
                         variant="outline"
                         className="h-8 px-2"
-                        disabled={!newStatus || updateTicketMut.isPending}
+                        disabled={!newStatus || newStatus === ticket.status || updateTicketMut.isPending}
                         onClick={() => updateTicketMut.mutate({ id: ticketId, status: newStatus as any })}
+                        title="Salvar status"
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" />
                       </Button>

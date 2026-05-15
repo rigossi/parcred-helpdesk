@@ -103,3 +103,8 @@
 
 ## Bug Fix v2
 - [x] Histórico de mensagens exibe "Usuário #XXXXXX" em vez do nome real do usuário1rio
+
+## Bug Fix v3
+- [x] Seletor de status não mostrava o status atual do ticket (sempre exibia placeholder vazio)
+- [x] Botão de salvar status ficava habilitado mesmo sem mudança (agora desabilitado quando status é igual ao atual)
+- [x] Cache da lista de tickets não era invalidado após atualização de status
