@@ -115,3 +115,8 @@
 - [x] Vincular o anexo à mensagem criada (messageId na tabela ticket_attachments)
 - [x] Exibir anexos vinculados a cada mensagem no histórico com link para download
 - [x] Exibir anexos da abertura do chamado (sem messageId) em seção separada no detalhe
+
+## Ajuste Visual - Login e Home
+- [x] Fundo branco nas telas de login e home (remover fundo verde escuro)
+- [x] Garantir contraste adequado em todos os textos (títulos, labels, placeholders)
+- [x] Revisar cores do card de login para combinar com fundo branco

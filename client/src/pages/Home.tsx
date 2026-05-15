@@ -41,14 +41,14 @@ export default function Home() {
 
   if (meQuery.isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "#0d2b0d" }}>
-        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#5cb85c" }} />
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: "#0d2b0d" }}>
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-white">
       {/* Logo e título */}
       <div className="flex flex-col items-center mb-8 select-none">
         <img
@@ -56,15 +56,15 @@ export default function Home() {
           alt="Parcred"
           className="h-20 w-auto mb-4 drop-shadow-md"
         />
-        <h1 className="text-3xl font-bold tracking-tight" style={{ color: "#e8f5e8" }}>Parcred Help Desk</h1>
-        <p className="mt-1 text-sm" style={{ color: "#a8c8a8" }}>Grupo Angar · Suporte aos Correspondentes</p>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900" style={{ fontFamily: "var(--font-display)" }}>Parcred Help Desk</h1>
+        <p className="mt-1 text-sm text-gray-500">Grupo Angar · Suporte aos Correspondentes</p>
       </div>
 
       {/* Card de login */}
       <Card className="w-full max-w-sm shadow-md border border-gray-200">
         <CardHeader className="pb-4">
-          <CardTitle className="text-xl text-gray-900">Acesse sua conta</CardTitle>
-          <CardDescription>Informe seu e-mail e senha para entrar</CardDescription>
+          <CardTitle className="text-xl font-semibold text-gray-900">Acesse sua conta</CardTitle>
+          <CardDescription className="text-gray-500">Informe seu e-mail e senha para entrar</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -133,7 +133,7 @@ export default function Home() {
         </CardContent>
       </Card>
 
-      <p className="text-xs mt-8" style={{ color: "#6a9a6a" }}>
+      <p className="text-xs mt-8 text-gray-400">
         © {new Date().getFullYear()} Parcred Brasil · Todos os direitos reservados
       </p>
     </div>

@@ -33,7 +33,7 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8 gap-3">
@@ -42,7 +42,7 @@ export default function ResetPassword() {
             alt="Parcred"
             className="h-14 w-auto drop-shadow"
           />
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
             Parcred Help Desk
           </h1>
         </div>
