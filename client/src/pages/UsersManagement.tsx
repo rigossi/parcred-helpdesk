@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { formatDateTime, ROLE_LABELS } from "@/lib/helpers";
 import { trpc } from "@/lib/trpc";
 import { Eye, EyeOff, Loader2, Pencil, Plus, Shield, ShieldCheck, User, Users, Building2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
@@ -95,16 +95,29 @@ export default function UsersManagement() {
   const [showEditPassword, setShowEditPassword] = useState(false);
 
   // Permissões de departamento do usuário em edição
-  const { data: editUserDeptPerms = [], refetch: refetchDeptPerms } = trpc.admin.getUserDepartmentPermissions.useQuery(
+  const { data: editUserDeptPerms = [] } = trpc.admin.getUserDepartmentPermissions.useQuery(
     { userId: editForm.userId },
     { enabled: editDialogOpen && editForm.userId > 0 }
   );
   const [selectedDepts, setSelectedDepts] = useState<number[]>([]);
+  // Usar ref para controlar se já sincronizamos as permissões para este userId
+  const syncedUserIdRef = useRef<number>(-1);
 
-  // Sincronizar selectedDepts quando as permissões carregarem
+  // Sincronizar selectedDepts apenas quando as permissões carregarem pela primeira vez para este userId
   useEffect(() => {
-    if (editDialogOpen) setSelectedDepts(editUserDeptPerms);
-  }, [editUserDeptPerms, editDialogOpen]);
+    if (
+      editDialogOpen &&
+      editForm.userId > 0 &&
+      editUserDeptPerms.length >= 0 &&
+      syncedUserIdRef.current !== editForm.userId
+    ) {
+      syncedUserIdRef.current = editForm.userId;
+      setSelectedDepts(editUserDeptPerms);
+    }
+    if (!editDialogOpen) {
+      syncedUserIdRef.current = -1;
+    }
+  }, [editDialogOpen, editForm.userId, editUserDeptPerms]);
 
   function openEditDialog(u: any) {
     setEditForm({
