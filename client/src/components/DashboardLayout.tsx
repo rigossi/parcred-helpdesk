@@ -104,18 +104,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[oklch(0.14_0.07_150)] to-[oklch(0.28_0.12_150)]">
-        <div className="bg-white rounded-2xl shadow-2xl p-10 max-w-md w-full mx-4 flex flex-col items-center gap-6">
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-10 max-w-md w-full mx-4 flex flex-col items-center gap-6">
           <div className="flex flex-col items-center gap-2">
             <img
               src="/manus-storage/parcred-logo_c55658d2.png"
               alt="Parcred"
               className="h-16 w-auto mb-2 drop-shadow-md"
             />
-            <h1 className="text-2xl font-bold text-foreground tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
               Parcred Help Desk
             </h1>
-            <p className="text-sm text-muted-foreground text-center">
+            <p className="text-sm text-gray-500 text-center">
               Plataforma de suporte aos correspondentes bancários
             </p>
           </div>
@@ -126,7 +126,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           >
             Ir para o login
           </Button>
-          <p className="text-xs text-muted-foreground text-center">
+          <p className="text-xs text-gray-400 text-center">
             Grupo Angar · Parcred Brasil
           </p>
         </div>

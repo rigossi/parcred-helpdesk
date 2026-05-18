@@ -120,3 +120,6 @@
 - [x] Fundo branco nas telas de login e home (remover fundo verde escuro)
 - [x] Garantir contraste adequado em todos os textos (títulos, labels, placeholders)
 - [x] Revisar cores do card de login para combinar com fundo branco
+
+## Bug Fix - Fundo Verde em Tela Não Autenticada
+- [x] Corrigir fundo verde escuro na tela de "não autenticado" exibida em /dashboard (e demais rotas protegidas)
