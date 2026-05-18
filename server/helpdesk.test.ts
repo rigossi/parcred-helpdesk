@@ -223,4 +223,80 @@ describe("admin", () => {
       caller.admin.updateUserRole({ userId: 5, role: "correspondent" })
     ).rejects.toThrow();
   });
+
+  it("updateUser is forbidden for agents", async () => {
+    const caller = appRouter.createCaller(makeCtx("agent"));
+    await expect(
+      caller.admin.updateUser({ userId: 5, name: "Novo Nome" })
+    ).rejects.toThrow();
+  });
+
+  it("updateUser is forbidden for correspondents", async () => {
+    const caller = appRouter.createCaller(makeCtx("correspondent"));
+    await expect(
+      caller.admin.updateUser({ userId: 5, name: "Novo Nome" })
+    ).rejects.toThrow();
+  });
+
+  it("getUserDepartmentPermissions is forbidden for agents", async () => {
+    const caller = appRouter.createCaller(makeCtx("agent"));
+    await expect(
+      caller.admin.getUserDepartmentPermissions({ userId: 1 })
+    ).rejects.toThrow();
+  });
+
+  it("getUserDepartmentPermissions returns array for admin", async () => {
+    const caller = appRouter.createCaller(makeCtx("admin"));
+    const result = await caller.admin.getUserDepartmentPermissions({ userId: 1 });
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("setUserDepartmentPermissions is forbidden for non-admin", async () => {
+    const caller = appRouter.createCaller(makeCtx("agent"));
+    await expect(
+      caller.admin.setUserDepartmentPermissions({ userId: 2, departmentIds: [1] })
+    ).rejects.toThrow();
+  });
+
+  it("setUserDepartmentPermissions succeeds for admin", async () => {
+    const caller = appRouter.createCaller(makeCtx("admin"));
+    const result = await caller.admin.setUserDepartmentPermissions({ userId: 99, departmentIds: [] });
+    expect(result.success).toBe(true);
+  });
+});
+
+// ─── Department permissions filter tests ────────────────────────────────────────────
+
+describe("department permissions filter", () => {
+  it("myDepartmentPermissions returns array for admin", async () => {
+    const caller = appRouter.createCaller(makeCtx("admin"));
+    const result = await caller.tickets.myDepartmentPermissions();
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("myDepartmentPermissions returns array for agent", async () => {
+    const caller = appRouter.createCaller(makeCtx("agent"));
+    const result = await caller.tickets.myDepartmentPermissions();
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("myDepartmentPermissions returns empty for correspondent", async () => {
+    const caller = appRouter.createCaller(makeCtx("correspondent"));
+    const result = await caller.tickets.myDepartmentPermissions();
+    expect(result).toEqual([]);
+  });
+
+  it("tickets.list returns array for admin (with or without dept filter)", async () => {
+    const caller = appRouter.createCaller(makeCtx("admin"));
+    const result = await caller.tickets.list({});
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("tickets.stats returns expected shape for admin", async () => {
+    const caller = appRouter.createCaller(makeCtx("admin"));
+    const result = await caller.tickets.stats();
+    expect(result).toHaveProperty("total");
+    expect(result).toHaveProperty("open");
+    expect(result).toHaveProperty("resolved");
+  });
 });

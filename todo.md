@@ -123,3 +123,25 @@
 
 ## Bug Fix - Fundo Verde em Tela Não Autenticada
 - [x] Corrigir fundo verde escuro na tela de "não autenticado" exibida em /dashboard (e demais rotas protegidas)
+
+## Gestão de Usuários - Edição e Permissões por Departamento
+- [ ] Modal de edição de dados cadastrais do usuário (nome, e-mail, role, senha opcional)
+- [ ] Tabela user_department_permissions no banco (userId, departmentId)
+- [ ] Procedure users.update para editar dados do usuário
+- [ ] Procedure users.setDepartmentPermissions para salvar permissões por departamento
+- [ ] Procedure users.getDepartmentPermissions para listar permissões do usuário
+- [ ] Seção de permissões por departamento no modal de edição (checkboxes por departamento + opção "Todos")
+- [ ] Filtro de departamentos aplicado no Dashboard (stats e lista de tickets recentes)
+- [ ] Filtro de departamentos aplicado na lista de chamados (TicketsList)
+- [ ] Admins com "Todos os departamentos" veem tudo (comportamento atual preservado)
+
+## Gestão de Usuários v2 - Concluído
+- [x] Modal de edição de dados cadastrais do usuário (nome, e-mail, role, ativo, senha opcional)
+- [x] Tabela user_department_permissions no banco (userId, departmentId, unique constraint)
+- [x] Procedure admin.updateUser para editar dados do usuário
+- [x] Procedure admin.setUserDepartmentPermissions para salvar permissões por departamento
+- [x] Procedure admin.getUserDepartmentPermissions para listar permissões do usuário
+- [x] Seção de permissões por departamento no modal de edição (checkboxes por departamento)
+- [x] Filtro de departamentos aplicado em tickets.list, tickets.myTickets e tickets.stats no backend
+- [x] Indicador visual de "Visão filtrada" no painel administrativo
+- [x] Admins/agentes sem restrição veem todos os departamentos (comportamento preservado)

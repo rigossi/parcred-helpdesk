@@ -40,12 +40,17 @@ function AdminDashboard() {
   const { data: departments = [] } = trpc.departments.list.useQuery({});
   const { data: correspondents = [] } = trpc.correspondents.list.useQuery();
   const { data: users = [] } = trpc.admin.users.useQuery();
+  const { data: myDeptPerms = [] } = trpc.tickets.myDepartmentPermissions.useQuery();
 
   const recentTickets = (tickets as any[]).slice(0, 5);
   const getDeptName = (id: number) => (departments as any[]).find((d: any) => d.id === id)?.name ?? "—";
 
   const totalTickets = stats?.total ?? 0;
   const resolvedRate = totalTickets > 0 ? Math.round(((stats?.resolved ?? 0) + (stats?.closed ?? 0)) / totalTickets * 100) : 0;
+
+  const filteredDeptNames = (myDeptPerms as number[])
+    .map((id) => (departments as any[]).find((d: any) => d.id === id)?.name)
+    .filter(Boolean);
 
   return (
     <div className="space-y-6">
@@ -54,6 +59,12 @@ function AdminDashboard() {
           Painel Administrativo
         </h1>
         <p className="text-muted-foreground text-sm mt-1">Visão geral do sistema de help desk da Parcred</p>
+        {filteredDeptNames.length > 0 && (
+          <div className="mt-2 flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5 w-fit">
+            <span className="font-semibold">Visão filtrada:</span>
+            <span>{filteredDeptNames.join(" · ")}</span>
+          </div>
+        )}
       </div>
 
       {/* KPIs */}

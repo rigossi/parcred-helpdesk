@@ -10,6 +10,7 @@ import {
   ticketMessages,
   tickets,
   users,
+  userDepartmentPermissions,
 } from "../drizzle/schema";
 import type {
   InsertCorrespondent,
@@ -21,6 +22,8 @@ import type {
   InsertTicketMessage,
   InsertUser,
 } from "../drizzle/schema";
+
+export { userDepartmentPermissions };
 
 export {
   users,
@@ -445,4 +448,46 @@ export async function createNotification(data: InsertNotification) {
   const db = await getDb();
   if (!db) return;
   await db.insert(notifications).values(data);
+}
+
+// ─── User Department Permissions ────────────────────────────────────────────
+
+/** Retorna os IDs dos departamentos que o usuário pode visualizar.
+ *  Se a lista estiver vazia, o usuário pode ver TODOS os departamentos. */
+export async function getUserDepartmentPermissions(userId: number): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select({ departmentId: userDepartmentPermissions.departmentId })
+    .from(userDepartmentPermissions)
+    .where(eq(userDepartmentPermissions.userId, userId));
+  return rows.map((r) => r.departmentId);
+}
+
+/** Substitui todas as permissões de departamento do usuário.
+ *  Passar array vazio = acesso a todos os departamentos. */
+export async function setUserDepartmentPermissions(userId: number, departmentIds: number[]): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // Remover permissões anteriores
+  await db.delete(userDepartmentPermissions).where(eq(userDepartmentPermissions.userId, userId));
+  // Inserir novas (se houver)
+  if (departmentIds.length > 0) {
+    await db.insert(userDepartmentPermissions).values(
+      departmentIds.map((departmentId) => ({ userId, departmentId }))
+    );
+  }
+}
+
+// ─── User update (admin) ───────────────────────────────────────────────────────────
+
+export async function updateUser(
+  id: number,
+  data: { name?: string; email?: string; active?: boolean; role?: "user" | "admin" | "agent" | "correspondent" }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  if (Object.keys(data).length === 0) return getUserById(id);
+  await db.update(users).set(data).where(eq(users.id, id));
+  return getUserById(id);
 }

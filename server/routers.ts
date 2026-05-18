@@ -45,6 +45,9 @@ import {
   getPasswordResetToken,
   markPasswordResetTokenUsed,
   getUserById,
+  getUserDepartmentPermissions,
+  setUserDepartmentPermissions,
+  updateUser,
 } from "./db";
 
 // ─── Middleware helpers ───────────────────────────────────────────────────────
@@ -317,6 +320,20 @@ export const appRouter = router({
           if (!correspondent) return [];
           return getTickets({ ...input, correspondentId: correspondent.id });
         }
+        // Para admin/agente: aplicar filtro de departamentos se configurado
+        if (ctx.user.role === "admin" || ctx.user.role === "agent") {
+          const allowedDepts = await getUserDepartmentPermissions(ctx.user.id);
+          if (allowedDepts.length > 0 && !input?.departmentId) {
+            // Buscar tickets de cada departamento permitido e combinar
+            const results = await Promise.all(
+              allowedDepts.map((deptId) => getTickets({ ...input, departmentId: deptId }))
+            );
+            const all = results.flat();
+            // Ordenar por data de criação decrescente
+            all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            return all;
+          }
+        }
         return getTickets(input);
       }),
 
@@ -327,9 +344,24 @@ export const appRouter = router({
         return getTickets({ correspondentId: correspondent.id });
       }
       if (ctx.user.role === "agent") {
+        const allowedDepts = await getUserDepartmentPermissions(ctx.user.id);
+        if (allowedDepts.length > 0) {
+          const results = await Promise.all(
+            allowedDepts.map((deptId) => getTickets({ assignedToUserId: ctx.user.id, departmentId: deptId }))
+          );
+          const all = results.flat();
+          all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          return all;
+        }
         return getTickets({ assignedToUserId: ctx.user.id });
       }
       return getTickets();
+    }),
+
+    // Retorna as permissões de departamento do usuário autenticado (para uso no frontend)
+    myDepartmentPermissions: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role !== "admin" && ctx.user.role !== "agent") return [];
+      return getUserDepartmentPermissions(ctx.user.id);
     }),
 
     byId: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
@@ -344,7 +376,27 @@ export const appRouter = router({
       return ticket;
     }),
 
-    stats: protectedProcedure.query(() => getTicketStats()),
+    stats: protectedProcedure.query(async ({ ctx }) => {
+      // Para admin/agente com filtro de departamentos, calcular stats apenas dos departamentos permitidos
+      if (ctx.user.role === "admin" || ctx.user.role === "agent") {
+        const allowedDepts = await getUserDepartmentPermissions(ctx.user.id);
+        if (allowedDepts.length > 0) {
+          const results = await Promise.all(
+            allowedDepts.map((deptId) => getTickets({ departmentId: deptId }))
+          );
+          const all = results.flat();
+          return {
+            open: all.filter((t) => t.status === "open").length,
+            inProgress: all.filter((t) => t.status === "in_progress").length,
+            waitingCorrespondent: all.filter((t) => t.status === "waiting_correspondent").length,
+            resolved: all.filter((t) => t.status === "resolved").length,
+            closed: all.filter((t) => t.status === "closed").length,
+            total: all.length,
+          };
+        }
+      }
+      return getTicketStats();
+    }),
 
     create: protectedProcedure
       .input(
@@ -548,6 +600,54 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
         await db.update(users).set({ passwordHash }).where(eq(users.id, input.userId));
+        return { success: true };
+      }),
+
+    // Editar dados cadastrais do usuário
+    updateUser: adminProcedure
+      .input(z.object({
+        userId: z.number(),
+        name: z.string().min(2).optional(),
+        email: z.string().email().optional(),
+        active: z.boolean().optional(),
+        role: z.enum(["user", "admin", "agent", "correspondent"]).optional(),
+        newPassword: z.string().min(6).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.userId === ctx.user.id && input.role && input.role !== ctx.user.role) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode alterar seu próprio perfil." });
+        }
+        const { userId, newPassword, ...data } = input;
+        // Verificar e-mail duplicado
+        if (data.email) {
+          const existing = await getUserByEmail(data.email);
+          if (existing && existing.id !== userId) {
+            throw new TRPCError({ code: "CONFLICT", message: "E-mail já está em uso por outro usuário." });
+          }
+        }
+        // Atualizar dados
+        await updateUser(userId, data);
+        // Atualizar senha se fornecida
+        if (newPassword) {
+          const passwordHash = await bcrypt.hash(newPassword, 12);
+          await updateUserPassword(userId, passwordHash);
+        }
+        return { success: true };
+      }),
+
+    // Obter permissões de departamento de um usuário
+    getUserDepartmentPermissions: adminProcedure
+      .input(z.object({ userId: z.number() }))
+      .query(({ input }) => getUserDepartmentPermissions(input.userId)),
+
+    // Definir permissões de departamento de um usuário
+    setUserDepartmentPermissions: adminProcedure
+      .input(z.object({
+        userId: z.number(),
+        departmentIds: z.array(z.number()),
+      }))
+      .mutation(async ({ input }) => {
+        await setUserDepartmentPermissions(input.userId, input.departmentIds);
         return { success: true };
       }),
   }),

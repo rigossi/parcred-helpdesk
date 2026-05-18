@@ -155,6 +155,20 @@ export const notifications = mysqlTable("notifications", {
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
 
+// ─── User Department Permissions ────────────────────────────────────────────
+// Quando vazio: admin/agente vê TODOS os departamentos
+// Quando preenchido: admin/agente vê apenas os departamentos listados
+
+export const userDepartmentPermissions = mysqlTable("user_department_permissions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  departmentId: int("departmentId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type UserDepartmentPermission = typeof userDepartmentPermissions.$inferSelect;
+export type InsertUserDepartmentPermission = typeof userDepartmentPermissions.$inferInsert;
+
 // ─── Password Reset Tokens ────────────────────────────────────────────────────────────────────────────────
 
 export const passwordResetTokens = mysqlTable("password_reset_tokens", {
