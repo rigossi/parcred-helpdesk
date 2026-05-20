@@ -20,7 +20,7 @@ export default function ForgotPassword() {
     e.preventDefault();
     setError("");
     if (!email) { setError("Informe o e-mail cadastrado."); return; }
-    requestReset.mutate({ email });
+    requestReset.mutate({ email, origin: window.location.origin });
   };
 
   return (
@@ -44,10 +44,10 @@ export default function ForgotPassword() {
               <CheckCircle className="h-12 w-12 text-primary" />
               <h2 className="text-lg font-semibold text-foreground">Solicitação enviada</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Se o e-mail informado estiver cadastrado no sistema, o administrador receberá uma notificação com as instruções para redefinição de senha.
+                Se o e-mail informado estiver cadastrado no sistema, você receberá um e-mail com o link para redefinição de senha em instantes.
               </p>
               <p className="text-xs text-muted-foreground mt-2">
-                Entre em contato com o suporte caso não receba o retorno em breve.
+                Verifique também a caixa de spam. Caso não receba, entre em contato com o suporte.
               </p>
               <Link href="/">
                 <Button variant="outline" className="mt-2 w-full">
@@ -61,7 +61,7 @@ export default function ForgotPassword() {
               <div className="mb-6">
                 <h2 className="text-xl font-semibold text-foreground mb-1">Esqueci minha senha</h2>
                 <p className="text-sm text-muted-foreground">
-                  Informe o e-mail cadastrado e o administrador do sistema receberá uma notificação para redefinir o seu acesso.
+                  Informe o e-mail cadastrado e enviaremos um link para redefinição de senha diretamente para você.
                 </p>
               </div>
 

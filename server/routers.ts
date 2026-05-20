@@ -65,6 +65,46 @@ const agentOrAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
 
 // ─── Helper: notificar usuários sobre ticket ──────────────────────────────────
 
+/** Envia e-mail de notificação de novo chamado para todos os admins ativos */
+async function emailAdminsNewTicket(ticket: {
+  ticketNumber: string;
+  title: string;
+  description: string;
+  openedByName: string;
+  departmentName: string;
+  priority: string;
+  openedAt: Date;
+  id: number;
+}, origin: string) {
+  try {
+    const { sendMail, replaceVars } = await import("./mailer");
+    const { getEmailTemplate } = await import("./db");
+    const template = await getEmailTemplate("new_ticket");
+    if (!template) return;
+    const allUsersForEmail = await getAllUsers();
+    const admins = allUsersForEmail.filter((u: { role: string; active: boolean; email: string }) => u.role === "admin" && u.active);
+    if (!admins.length) return;
+    const PRIORITY_LABELS: Record<string, string> = { low: "Baixa", medium: "Média", high: "Alta", critical: "Crítica" };
+    const vars = {
+      ticket_number: ticket.ticketNumber,
+      title: ticket.title,
+      description: ticket.description || "(sem descrição)",
+      opened_by: ticket.openedByName,
+      department: ticket.departmentName,
+      priority: PRIORITY_LABELS[ticket.priority] ?? ticket.priority,
+      opened_at: ticket.openedAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+      ticket_link: `${origin}/tickets/${ticket.id}`,
+      app_name: "Parcred Help Desk",
+    };
+    const subject = replaceVars(template.subject, vars);
+    const html = replaceVars(template.bodyHtml, vars);
+    const emails = admins.map((u: { email: string }) => u.email);
+    await sendMail({ to: emails, subject, html });
+  } catch (err) {
+    console.error("[emailAdminsNewTicket] Erro ao enviar e-mail:", err);
+  }
+}
+
 async function notifyTicketEvent(
   userIds: number[],
   ticketId: number,
@@ -128,7 +168,7 @@ export const appRouter = router({
 
     // Solicitar recuperação de senha por e-mail
     requestPasswordReset: publicProcedure
-      .input(z.object({ email: z.string().email() }))
+      .input(z.object({ email: z.string().email(), origin: z.string().url().optional() }))
       .mutation(async ({ input }) => {
         const user = await getUserByEmail(input.email);
         // Resposta genérica para não revelar se o e-mail existe
@@ -136,13 +176,34 @@ export const appRouter = router({
         const { nanoid } = await import("nanoid");
         const token = nanoid(48);
         await createPasswordResetToken(user.id, token);
-        // Notificação interna com o token (em produção, enviar por e-mail)
-        await import("./_core/notification").then(({ notifyOwner }) =>
-          notifyOwner({
-            title: "Recuperação de senha solicitada",
-            content: `O usuário ${user.email} solicitou recuperação de senha.\nToken: ${token}\nVálido por 2 horas.`,
-          })
-        );
+        const resetLink = `${input.origin ?? "https://suporte.parcredbrasil.com.br"}/reset-password?token=${token}`;
+        // Tentar enviar e-mail via SMTP
+        const { sendMail, replaceVars } = await import("./mailer");
+        const { getEmailTemplate } = await import("./db");
+        const template = await getEmailTemplate("password_reset");
+        let emailSent = false;
+        if (template) {
+          const vars = {
+            name: user.name ?? user.email,
+            email: user.email,
+            reset_link: resetLink,
+            app_name: "Parcred Help Desk",
+          };
+          emailSent = await sendMail({
+            to: user.email,
+            subject: replaceVars(template.subject, vars),
+            html: replaceVars(template.bodyHtml, vars),
+          });
+        }
+        // Fallback: notificação interna se SMTP não configurado
+        if (!emailSent) {
+          await import("./_core/notification").then(({ notifyOwner }) =>
+            notifyOwner({
+              title: "Recuperação de senha solicitada",
+              content: `O usuário ${user.email} solicitou recuperação de senha.\nLink: ${resetLink}\nVálido por 2 horas.`,
+            })
+          );
+        }
         return { success: true };
       }),
 
@@ -408,6 +469,8 @@ export const appRouter = router({
           // tipo e prioridade definidos pelo agente após abertura
           ticketType: z.enum(["technical", "commercial", "financial"]).optional(),
           priority: z.enum(["low", "medium", "high", "critical"]).optional(),
+          // origin para montar o link do chamado no e-mail
+          origin: z.string().url().optional(),
           // anexos opcionais enviados na abertura
           attachments: z.array(z.object({
             fileName: z.string(),
@@ -419,7 +482,7 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const { attachments, ...ticketData } = input;
+        const { attachments, origin, ...ticketData } = input;
         const ticket = await createTicket({
           ...ticketData,
           ticketType: ticketData.ticketType ?? "technical",
@@ -437,6 +500,18 @@ export const appRouter = router({
         const allUsers = await getAllUsers();
         const staffIds = allUsers.filter((u: { role: string; id: number }) => u.role === "admin" || u.role === "agent").map((u: { id: number }) => u.id);
         await notifyTicketEvent(staffIds, ticket.id, "ticket_opened", `Novo chamado: ${ticket.ticketNumber}`, `${ctx.user.name ?? "Correspondente"} abriu o chamado "${input.title}"`);
+        // Enviar e-mail para admins (não bloqueia a resposta)
+        const dept = await getDepartmentById(input.departmentId);
+        emailAdminsNewTicket({
+          ticketNumber: ticket.ticketNumber,
+          title: ticket.title,
+          description: ticket.description ?? "",
+          openedByName: ctx.user.name ?? ctx.user.email,
+          departmentName: dept?.name ?? "N/A",
+          priority: ticket.priority ?? "medium",
+          openedAt: ticket.createdAt ?? new Date(),
+          id: ticket.id,
+        }, origin ?? "https://suporte.parcredbrasil.com.br").catch(console.error);
         return ticket;
       }),
 

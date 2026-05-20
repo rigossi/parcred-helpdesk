@@ -153,3 +153,12 @@
 - [x] Tela de edição do template com editor de HTML e preview renderizado
 - [x] Variáveis disponíveis documentadas na tela ({{name}}, {{reset_link}}, etc.)
 - [x] Item de menu "Templates de E-mail" na sidebar de admin
+
+## Envio de E-mail via SMTP
+- [x] Instalar nodemailer e @types/nodemailer
+- [x] Criar helper server/mailer.ts com suporte a SMTP configurável
+- [x] Solicitar credenciais SMTP via secrets (host, port, user, pass, from)
+- [x] Criar template de e-mail "new_ticket" no banco para notificação de admins
+- [x] Integrar envio de e-mail na abertura de chamado (notificar todos os admins ativos)
+- [x] Integrar envio de e-mail na recuperação de senha (substituir notifyOwner por envio real)
+- [x] Páginas ForgotPassword e ResetPassword funcionais com envio real por SMTP

@@ -151,6 +151,7 @@ export default function NewTicket() {
       title: title.trim(),
       description: description.trim(),
       attachments: validAttachments.length > 0 ? validAttachments : undefined,
+      origin: window.location.origin,
     });
   }
 
