@@ -35,6 +35,7 @@ import {
   KeyRound,
   LayoutDashboard,
   LogOut,
+  Mail,
   PanelLeft,
   PlusCircle,
   Timer,
@@ -67,6 +68,7 @@ function getMenuItems(role: string): MenuItem[] {
       { icon: Building2, label: "Departamentos", path: "/departments", section: "Cadastros" },
       { icon: Timer, label: "Políticas de SLA", path: "/sla", section: "Cadastros" },
       { icon: Users, label: "Usuários", path: "/users", section: "Administração" },
+      { icon: Mail, label: "Templates de E-mail", path: "/email-templates", section: "Administração" },
     ];
   }
   if (role === "agent") {

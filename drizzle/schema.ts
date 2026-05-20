@@ -1,5 +1,6 @@
 import {
   int,
+  longtext,
   mysqlEnum,
   mysqlTable,
   text,
@@ -158,6 +159,14 @@ export type InsertNotification = typeof notifications.$inferInsert;
 // ─── User Department Permissions ────────────────────────────────────────────
 // Quando vazio: admin/agente vê TODOS os departamentos
 // Quando preenchido: admin/agente vê apenas os departamentos listados
+
+export const emailTemplates = mysqlTable("email_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  templateKey: varchar("template_key", { length: 100 }).notNull().unique(),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  bodyHtml: longtext("body_html").notNull(),
+  updatedAt: bigint("updated_at", { mode: "number" }).notNull().default(0),
+});
 
 export const userDepartmentPermissions = mysqlTable("user_department_permissions", {
   id: int("id").autoincrement().primaryKey(),

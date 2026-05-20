@@ -16,6 +16,7 @@ import UsersManagement from "./pages/UsersManagement";
 import Notifications from "./pages/Notifications";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import EmailTemplates from "./pages/EmailTemplates";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/sla" component={SlaManagement} />
       <Route path="/users" component={UsersManagement} />
       <Route path="/notifications" component={Notifications} />
+      <Route path="/email-templates" component={EmailTemplates} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

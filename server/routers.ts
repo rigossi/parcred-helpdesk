@@ -650,6 +650,26 @@ export const appRouter = router({
         await setUserDepartmentPermissions(input.userId, input.departmentIds);
         return { success: true };
       }),
+
+    // Obter template de e-mail
+    getEmailTemplate: adminProcedure
+      .input(z.object({ key: z.string() }))
+      .query(async ({ input }) => {
+        const { getEmailTemplate } = await import("./db");
+        return getEmailTemplate(input.key);
+      }),
+
+    // Salvar template de e-mail
+    updateEmailTemplate: adminProcedure
+      .input(z.object({
+        key: z.string(),
+        subject: z.string().min(1),
+        bodyHtml: z.string().min(1),
+      }))
+      .mutation(async ({ input }) => {
+        const { upsertEmailTemplate } = await import("./db");
+        return upsertEmailTemplate(input.key, input.subject, input.bodyHtml);
+      }),
   }),
 });
 

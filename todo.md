@@ -145,3 +145,11 @@
 - [x] Filtro de departamentos aplicado em tickets.list, tickets.myTickets e tickets.stats no backend
 - [x] Indicador visual de "Visão filtrada" no painel administrativo
 - [x] Admins/agentes sem restrição veem todos os departamentos (comportamento preservado)
+
+## Template de E-mail de Recuperação de Senha
+- [x] Verificar como o e-mail de recuperação é enviado atualmente (template hardcoded ou dinâmico)
+- [x] Criar tabela email_templates no banco (key, subject, body_html, updated_at)
+- [x] Procedure admin.getEmailTemplate e admin.updateEmailTemplate
+- [x] Tela de edição do template com editor de HTML e preview renderizado
+- [x] Variáveis disponíveis documentadas na tela ({{name}}, {{reset_link}}, etc.)
+- [x] Item de menu "Templates de E-mail" na sidebar de admin

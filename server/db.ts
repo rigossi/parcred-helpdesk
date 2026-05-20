@@ -450,6 +450,29 @@ export async function createNotification(data: InsertNotification) {
   await db.insert(notifications).values(data);
 }
 
+// ─── Email Templates ────────────────────────────────────────────────────────
+
+export async function getEmailTemplate(key: string) {
+  const db = getDb();
+  const { emailTemplates } = await import("../drizzle/schema");
+  const [row] = await db.select().from(emailTemplates).where(eq(emailTemplates.templateKey, key));
+  return row ?? null;
+}
+
+export async function upsertEmailTemplate(key: string, subject: string, bodyHtml: string) {
+  const db = getDb();
+  const { emailTemplates } = await import("../drizzle/schema");
+  const existing = await getEmailTemplate(key);
+  if (existing) {
+    await db.update(emailTemplates)
+      .set({ subject, bodyHtml, updatedAt: Date.now() })
+      .where(eq(emailTemplates.templateKey, key));
+  } else {
+    await db.insert(emailTemplates).values({ templateKey: key, subject, bodyHtml, updatedAt: Date.now() });
+  }
+  return getEmailTemplate(key);
+}
+
 // ─── User Department Permissions ────────────────────────────────────────────
 
 /** Retorna os IDs dos departamentos que o usuário pode visualizar.
