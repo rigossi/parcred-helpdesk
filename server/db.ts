@@ -453,14 +453,16 @@ export async function createNotification(data: InsertNotification) {
 // ─── Email Templates ────────────────────────────────────────────────────────
 
 export async function getEmailTemplate(key: string) {
-  const db = getDb();
+  const db = await getDb();
+  if (!db) return null;
   const { emailTemplates } = await import("../drizzle/schema");
   const [row] = await db.select().from(emailTemplates).where(eq(emailTemplates.templateKey, key));
   return row ?? null;
 }
 
 export async function upsertEmailTemplate(key: string, subject: string, bodyHtml: string) {
-  const db = getDb();
+  const db = await getDb();
+  if (!db) return null;
   const { emailTemplates } = await import("../drizzle/schema");
   const existing = await getEmailTemplate(key);
   if (existing) {
