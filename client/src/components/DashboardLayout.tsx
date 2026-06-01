@@ -110,9 +110,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-10 max-w-md w-full mx-4 flex flex-col items-center gap-6">
           <div className="flex flex-col items-center gap-2">
             <img
-              src="/manus-storage/parcred-logo_c55658d2.png"
+              src="/logo.png"
               alt="Parcred"
-              className="h-16 w-auto mb-2 drop-shadow-md"
+              className="w-20 h-auto mb-2 drop-shadow-md"
             />
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
               Parcred Help Desk
@@ -243,17 +243,17 @@ function DashboardLayoutContent({
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
                   <img
-                    src="/manus-storage/parcred-logo_c55658d2.png"
+                    src="/logo.png"
                     alt="Parcred"
-                    className="h-8 w-auto brightness-0 invert"
+                    className="w-8 h-auto brightness-0 invert"
                   />
                   <span className="text-xs text-sidebar-foreground/50 truncate font-medium">Help Desk</span>
                 </div>
               ) : (
                 <img
-                  src="/manus-storage/parcred-logo_c55658d2.png"
+                  src="/logo.png"
                   alt="Parcred"
-                  className="h-6 w-auto brightness-0 invert"
+                  className="w-6 h-auto brightness-0 invert"
                 />
               )}
             </div>

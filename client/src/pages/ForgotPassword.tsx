@@ -29,7 +29,7 @@ export default function ForgotPassword() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8 gap-3">
           <img
-            src="/manus-storage/parcred-logo_c55658d2.png"
+            src="/logo.png"
             alt="Parcred"
             className="h-14 w-auto drop-shadow"
           />

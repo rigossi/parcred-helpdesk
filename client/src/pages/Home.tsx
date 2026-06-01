@@ -52,7 +52,7 @@ export default function Home() {
       {/* Logo e título */}
       <div className="flex flex-col items-center mb-8 select-none">
         <img
-          src="/manus-storage/parcred-logo_c55658d2.png"
+          src="/logo.png"
           alt="Parcred"
           className="h-20 w-auto mb-4 drop-shadow-md"
         />
