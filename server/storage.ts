@@ -7,6 +7,7 @@ import {
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { randomUUID } from "crypto";
 import { ENV } from "./_core/env";
 
 function getS3Client() {
@@ -32,7 +33,7 @@ function normalizeKey(relKey: string): string {
 }
 
 function appendHashSuffix(relKey: string): string {
-  const hash = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+  const hash = randomUUID().replace(/-/g, "").slice(0, 8);
   const lastDot = relKey.lastIndexOf(".");
   if (lastDot === -1) return `${relKey}_${hash}`;
   return `${relKey.slice(0, lastDot)}_${hash}${relKey.slice(lastDot)}`;
