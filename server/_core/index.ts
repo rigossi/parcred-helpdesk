@@ -1,4 +1,9 @@
 import "dotenv/config";
+// Polyfill globalThis.crypto para Node 18 (necessário para jose e AWS SDK)
+import { webcrypto } from "crypto";
+if (!globalThis.crypto) {
+  (globalThis as any).crypto = webcrypto;
+}
 import express from "express";
 import { createServer } from "http";
 import net from "net";
