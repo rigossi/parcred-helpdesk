@@ -195,14 +195,16 @@ export const appRouter = router({
             html: replaceVars(template.bodyHtml, vars),
           });
         }
-        // Fallback: notificação interna se SMTP não configurado
+        // Se não há template configurado, envia e-mail simples
         if (!emailSent) {
-          await import("./_core/notification").then(({ notifyOwner }) =>
-            notifyOwner({
-              title: "Recuperação de senha solicitada",
-              content: `O usuário ${user.email} solicitou recuperação de senha.\nLink: ${resetLink}\nVálido por 2 horas.`,
-            })
-          );
+          await sendMail({
+            to: user.email,
+            subject: "Recuperação de senha — Parcred Help Desk",
+            html: `<p>Olá, ${user.name ?? user.email}!</p>
+<p>Recebemos uma solicitação de recuperação de senha para sua conta.</p>
+<p><a href="${resetLink}">Clique aqui para redefinir sua senha</a></p>
+<p>O link é válido por 2 horas. Se você não solicitou isso, ignore este e-mail.</p>`,
+          });
         }
         return { success: true };
       }),
