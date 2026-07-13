@@ -1,8 +1,9 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   correspondents,
   departments,
+  eligibleClients,
   notifications,
   passwordResetTokens,
   slaPolicies,
@@ -13,8 +14,10 @@ import {
   userDepartmentPermissions,
 } from "../drizzle/schema";
 import type {
+  EligibleClient,
   InsertCorrespondent,
   InsertDepartment,
+  InsertEligibleClient,
   InsertNotification,
   InsertSlaPolicy,
   InsertTicket,
@@ -508,11 +511,76 @@ export async function setUserDepartmentPermissions(userId: number, departmentIds
 
 export async function updateUser(
   id: number,
-  data: { name?: string; email?: string; active?: boolean; role?: "user" | "admin" | "agent" | "correspondent" }
+  data: { name?: string; email?: string; active?: boolean; role?: "user" | "admin" | "agent" | "correspondent" | "client"; cpf?: string }
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   if (Object.keys(data).length === 0) return getUserById(id);
   await db.update(users).set(data).where(eq(users.id, id));
   return getUserById(id);
+}
+
+// ─── Eligible Clients ─────────────────────────────────────────────────────────
+
+export async function getEligibleClientByCpf(cpf: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const [client] = await db.select().from(eligibleClients).where(eq(eligibleClients.cpf, cpf));
+  return client ?? null;
+}
+
+export async function getEligibleClients() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(eligibleClients).orderBy(desc(eligibleClients.importedAt));
+}
+
+export async function upsertEligibleClients(data: InsertEligibleClient[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  let imported = 0;
+  for (const client of data) {
+    await db.insert(eligibleClients)
+      .values(client)
+      .onConflictDoUpdate({
+        target: eligibleClients.cpf,
+        set: {
+          proposta: client.proposta,
+          name: client.name,
+          email: client.email,
+          phone: client.phone,
+        },
+      });
+    imported++;
+  }
+  return imported;
+}
+
+export async function markEligibleClientRegistered(cpf: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(eligibleClients)
+    .set({ registeredAt: new Date() })
+    .where(eq(eligibleClients.cpf, cpf));
+}
+
+export async function updateEligibleClient(id: number, data: Partial<InsertEligibleClient>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(eligibleClients).set(data).where(eq(eligibleClients.id, id));
+}
+
+export async function getUserByCpf(cpf: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const [user] = await db.select().from(users).where(eq(users.cpf, cpf));
+  return user ?? null;
+}
+
+export async function getTicketsByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tickets)
+    .where(eq(tickets.userId, userId))
+    .orderBy(desc(tickets.createdAt));
 }

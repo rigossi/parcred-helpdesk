@@ -45,9 +45,16 @@ import {
   getPasswordResetToken,
   markPasswordResetTokenUsed,
   getUserById,
+  getUserByCpf,
   getUserDepartmentPermissions,
   setUserDepartmentPermissions,
   updateUser,
+  getEligibleClientByCpf,
+  getEligibleClients,
+  upsertEligibleClients,
+  markEligibleClientRegistered,
+  updateEligibleClient,
+  getTicketsByUserId,
 } from "./db";
 
 // ─── Middleware helpers ───────────────────────────────────────────────────────
@@ -746,6 +753,219 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const { upsertEmailTemplate } = await import("./db");
         return upsertEmailTemplate(input.key, input.subject, input.bodyHtml);
+      }),
+  }),
+  // ─── Portal do Cliente ────────────────────────────────────────────────────
+  clientPortal: router({
+
+    // Verifica se CPF é elegível para cadastro
+    checkEligibility: publicProcedure
+      .input(z.object({ cpf: z.string().min(11) }))
+      .query(async ({ input }) => {
+        const cpf = input.cpf.replace(/[^0-9]/g, "");
+        const eligible = await getEligibleClientByCpf(cpf);
+        if (!eligible) return { eligible: false, name: null };
+        const existing = await getUserByCpf(cpf);
+        return { eligible: true, name: eligible.name, alreadyRegistered: !!existing };
+      }),
+
+    // Cadastro do cliente
+    register: publicProcedure
+      .input(z.object({
+        cpf: z.string().min(11),
+        email: z.string().email(),
+        password: z.string().min(6),
+        name: z.string().min(2),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const cpf = input.cpf.replace(/[^0-9]/g, "");
+
+        // Verifica elegibilidade
+        const eligible = await getEligibleClientByCpf(cpf);
+        if (!eligible) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "CPF não encontrado na base de clientes elegíveis." });
+        }
+
+        // Verifica se já cadastrado
+        const existing = await getUserByCpf(cpf);
+        if (existing) {
+          throw new TRPCError({ code: "CONFLICT", message: "Este CPF já possui uma conta cadastrada." });
+        }
+
+        // Verifica se e-mail já está em uso
+        const emailExists = await getUserByEmail(input.email);
+        if (emailExists) {
+          throw new TRPCError({ code: "CONFLICT", message: "Este e-mail já está em uso." });
+        }
+
+        const passwordHash = await bcrypt.hash(input.password, 10);
+        const user = await createUser({
+          name: input.name,
+          email: input.email,
+          passwordHash,
+          role: "client",
+          cpf,
+          active: true,
+        });
+
+        // Marca como registrado na base de elegíveis
+        await markEligibleClientRegistered(cpf);
+
+        const token = await createSessionToken(user.id);
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
+        return { success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+      }),
+
+    // Login do cliente (CPF ou e-mail + senha)
+    login: publicProcedure
+      .input(z.object({
+        identifier: z.string().min(1), // CPF ou e-mail
+        password: z.string().min(1),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const isCpf = /^[0-9.\-]+$/.test(input.identifier.trim());
+        const cpf = isCpf ? input.identifier.replace(/[^0-9]/g, "") : null;
+
+        const user = cpf
+          ? await getUserByCpf(cpf)
+          : await getUserByEmail(input.identifier.trim());
+
+        if (!user || !user.active || user.role !== "client") {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Credenciais inválidas." });
+        }
+
+        const valid = await bcrypt.compare(input.password, user.passwordHash);
+        if (!valid) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Credenciais inválidas." });
+        }
+
+        await updateUserLastSignedIn(user.id);
+        const token = await createSessionToken(user.id);
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
+        return { success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+      }),
+
+    // Meus chamados (cliente autenticado)
+    myTickets: protectedProcedure
+      .use(({ ctx, next }) => {
+        if (ctx.user.role !== "client") throw new TRPCError({ code: "FORBIDDEN" });
+        return next({ ctx });
+      })
+      .query(async ({ ctx }) => {
+        return getTicketsByUserId(ctx.user.id);
+      }),
+
+    // Abrir chamado (cliente autenticado)
+    openTicket: protectedProcedure
+      .use(({ ctx, next }) => {
+        if (ctx.user.role !== "client") throw new TRPCError({ code: "FORBIDDEN" });
+        return next({ ctx });
+      })
+      .input(z.object({
+        subject: z.string().min(3),
+        description: z.string().min(10),
+        departmentId: z.number().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return createTicket({
+          subject: input.subject,
+          description: input.description,
+          userId: ctx.user.id,
+          departmentId: input.departmentId ?? null,
+          originType: "client",
+          status: "open",
+          priority: "medium",
+        });
+      }),
+
+    // Ver detalhes de um chamado (cliente só vê os seus)
+    getTicket: protectedProcedure
+      .use(({ ctx, next }) => {
+        if (ctx.user.role !== "client") throw new TRPCError({ code: "FORBIDDEN" });
+        return next({ ctx });
+      })
+      .input(z.object({ ticketId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const ticket = await getTicketById(input.ticketId);
+        if (!ticket || ticket.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Chamado não encontrado." });
+        }
+        return ticket;
+      }),
+
+    // Responder em um chamado (cliente só responde nos seus)
+    replyTicket: protectedProcedure
+      .use(({ ctx, next }) => {
+        if (ctx.user.role !== "client") throw new TRPCError({ code: "FORBIDDEN" });
+        return next({ ctx });
+      })
+      .input(z.object({
+        ticketId: z.number(),
+        message: z.string().min(1),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const ticket = await getTicketById(input.ticketId);
+        if (!ticket || ticket.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Chamado não encontrado." });
+        }
+        return createTicketMessage({
+          ticketId: input.ticketId,
+          userId: ctx.user.id,
+          message: input.message,
+          isInternal: false,
+        });
+      }),
+  }),
+
+  // ─── Admin — Gestão de Clientes ──────────────────────────────────────────
+  clients: router({
+
+    list: adminProcedure.query(() => getEligibleClients()),
+
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(2).optional(),
+        email: z.string().email().optional(),
+        phone: z.string().optional(),
+        proposta: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        return updateEligibleClient(id, data);
+      }),
+
+    // Reset de senha do cliente pelo admin
+    resetPassword: adminProcedure
+      .input(z.object({
+        userId: z.number(),
+        newPassword: z.string().min(6),
+      }))
+      .mutation(async ({ input }) => {
+        const passwordHash = await bcrypt.hash(input.newPassword, 10);
+        await updateUserPassword(input.userId, passwordHash);
+        return { success: true };
+      }),
+
+    // Importação de planilha via JSON (parsed no frontend)
+    import: adminProcedure
+      .input(z.array(z.object({
+        proposta: z.string().optional(),
+        cpf: z.string().min(11),
+        name: z.string().min(2),
+        email: z.string().email().optional(),
+        phone: z.string().optional(),
+      })))
+      .mutation(async ({ input }) => {
+        const data = input.map(row => ({
+          ...row,
+          cpf: row.cpf.replace(/[^0-9]/g, ""),
+          email: row.email?.toLowerCase().trim(),
+        }));
+        const imported = await upsertEligibleClients(data);
+        return { imported };
       }),
   }),
 });

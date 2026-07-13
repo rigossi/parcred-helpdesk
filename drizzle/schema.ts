@@ -17,7 +17,8 @@ export const users = mysqlTable("users", {
   name: varchar("name", { length: 128 }),
   email: varchar("email", { length: 320 }).notNull().unique(),
   passwordHash: varchar("passwordHash", { length: 256 }).notNull(),
-  role: mysqlEnum("role", ["user", "admin", "agent", "correspondent"]).default("user").notNull(),
+  role: mysqlEnum("role", ["user", "admin", "agent", "correspondent", "client"]).default("user").notNull(),
+  cpf: varchar("cpf", { length: 14 }),
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -100,6 +101,7 @@ export const tickets = mysqlTable("tickets", {
   firstResponseAt: timestamp("firstResponseAt"),
   resolvedAt: timestamp("resolvedAt"),
   closedAt: timestamp("closedAt"),
+  originType: mysqlEnum("originType", ["correspondent", "client"]).default("correspondent").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -177,6 +179,26 @@ export const userDepartmentPermissions = mysqlTable("user_department_permissions
 
 export type UserDepartmentPermission = typeof userDepartmentPermissions.$inferSelect;
 export type InsertUserDepartmentPermission = typeof userDepartmentPermissions.$inferInsert;
+
+// ─── Password Reset Tokens ────────────────────────────────────────────────────────────────────────────────
+
+// ─── Eligible Clients ─────────────────────────────────────────────────────────
+// Base de clientes elegíveis importada via planilha.
+// Apenas CPFs presentes aqui podem se cadastrar no portal do cliente.
+
+export const eligibleClients = mysqlTable("eligible_clients", {
+  id: int("id").autoincrement().primaryKey(),
+  proposta: varchar("proposta", { length: 32 }),
+  cpf: varchar("cpf", { length: 14 }).notNull().unique(),
+  name: varchar("name", { length: 256 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 32 }),
+  importedAt: timestamp("importedAt").defaultNow().notNull(),
+  registeredAt: timestamp("registeredAt"), // preenchido quando o cliente se cadastra no portal
+});
+
+export type EligibleClient = typeof eligibleClients.$inferSelect;
+export type InsertEligibleClient = typeof eligibleClients.$inferInsert;
 
 // ─── Password Reset Tokens ────────────────────────────────────────────────────────────────────────────────
 
