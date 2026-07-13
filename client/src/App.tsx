@@ -17,6 +17,10 @@ import Notifications from "./pages/Notifications";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import EmailTemplates from "./pages/EmailTemplates";
+import PortalRegister from "./pages/PortalRegister";
+import PortalDashboard from "./pages/PortalDashboard";
+import PortalNewTicket from "./pages/PortalNewTicket";
+import PortalTicketDetail from "./pages/PortalTicketDetail";
 
 function Router() {
   return (
@@ -24,6 +28,14 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
+
+      {/* Portal do Cliente */}
+      <Route path="/portal/cadastro" component={PortalRegister} />
+      <Route path="/portal" component={PortalDashboard} />
+      <Route path="/portal/novo-chamado" component={PortalNewTicket} />
+      <Route path="/portal/chamado/:id" component={PortalTicketDetail} />
+
+      {/* Dashboard interno */}
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/tickets" component={TicketsList} />
       <Route path="/tickets/new" component={NewTicket} />
