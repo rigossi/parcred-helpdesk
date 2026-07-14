@@ -5,20 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function PortalRegister() {
   const [, navigate] = useLocation();
   const [step, setStep] = useState<"cpf" | "form">("cpf");
   const [cpf, setCpf] = useState("");
+  const [cpfRaw, setCpfRaw] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [eligibleName, setEligibleName] = useState("");
+  const [checkLoading, setCheckLoading] = useState(false);
 
-  const checkEligibility = trpc.clientPortal.checkEligibility.useMutation();
+  const utils = trpc.useUtils();
   const register = trpc.clientPortal.register.useMutation();
 
   function formatCpf(value: string) {
@@ -36,8 +38,9 @@ export default function PortalRegister() {
       toast.error("CPF inválido.");
       return;
     }
+    setCheckLoading(true);
     try {
-      const result = await checkEligibility.mutateAsync({ cpf: raw });
+      const result = await utils.clientPortal.checkEligibility.fetch({ cpf: raw });
       if (!result.eligible) {
         toast.error("CPF não encontrado na base de clientes elegíveis.");
         return;
@@ -49,9 +52,12 @@ export default function PortalRegister() {
       }
       setEligibleName(result.name ?? "");
       setName(result.name ?? "");
+      setCpfRaw(raw);
       setStep("form");
     } catch (err: any) {
       toast.error(err?.message ?? "Erro ao verificar CPF.");
+    } finally {
+      setCheckLoading(false);
     }
   }
 
@@ -62,7 +68,7 @@ export default function PortalRegister() {
       return;
     }
     try {
-      await register.mutateAsync({ cpf: cpf.replace(/\D/g, ""), email, password, name });
+      await register.mutateAsync({ cpf: cpfRaw, email, password, name });
       navigate("/portal");
     } catch (err: any) {
       toast.error(err?.message ?? "Erro ao criar conta.");
@@ -99,12 +105,12 @@ export default function PortalRegister() {
                   placeholder="000.000.000-00"
                   value={cpf}
                   onChange={(e) => setCpf(formatCpf(e.target.value))}
-                  disabled={checkEligibility.isPending}
+                  disabled={checkLoading}
                   required
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={checkEligibility.isPending}>
-                {checkEligibility.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              <Button type="submit" className="w-full" disabled={checkLoading}>
+                {checkLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Verificar CPF
               </Button>
             </form>
