@@ -908,7 +908,7 @@ export const appRouter = router({
       .input(z.object({ ticketId: z.number() }))
       .query(async ({ ctx, input }) => {
         const ticket = await getTicketById(input.ticketId);
-        if (!ticket || ticket.userId !== ctx.user.id) {
+        if (!ticket || ticket.openedByUserId !== ctx.user.id) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Chamado não encontrado." });
         }
         return ticket;
@@ -926,7 +926,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const ticket = await getTicketById(input.ticketId);
-        if (!ticket || ticket.userId !== ctx.user.id) {
+        if (!ticket || ticket.openedByUserId !== ctx.user.id) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Chamado não encontrado." });
         }
         return createTicketMessage({

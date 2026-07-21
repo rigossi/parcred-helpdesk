@@ -581,6 +581,6 @@ export async function getTicketsByUserId(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(tickets)
-    .where(eq(tickets.userId, userId))
+    .where(eq(tickets.openedByUserId, userId))
     .orderBy(desc(tickets.createdAt));
 }
