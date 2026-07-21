@@ -1,3 +1,4 @@
+// Portal do Cliente — Detalhe do Chamado v2
 import { useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { trpc } from "@/lib/trpc";

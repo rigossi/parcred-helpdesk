@@ -1,3 +1,4 @@
+// Portal do Cliente — Dashboard v2
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
