@@ -558,6 +558,12 @@ export const appRouter = router({
         await notifyTicketEvent([input.agentId], input.id, "ticket_assigned", `Chamado atribuído: ${ticket.ticketNumber}`, `O chamado "${ticket.title}" foi atribuído a você.`);
         return { success: true };
       }),
+
+    getAttachments: protectedProcedure
+      .input(z.object({ ticketId: z.number() }))
+      .query(async ({ input }) => {
+        return getTicketAttachments(input.ticketId);
+      }),
   }),
 
   // ─── Ticket Messages ─────────────────────────────────────────────────────────
