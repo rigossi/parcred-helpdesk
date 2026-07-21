@@ -891,6 +891,7 @@ export const appRouter = router({
             await createTicketAttachment({
               ticketId: ticket.id,
               messageId: null,
+              uploadedByUserId: ctx.user.id,
               ...att,
             });
           }
