@@ -24,8 +24,9 @@ export const STATUS_LABELS: Record<string, string> = {
 export const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
   agent: "Agente de Suporte",
-  correspondent: "Correspondente Bancário",
+  correspondent: "Parceiro",
   user: "Usuário",
+  client: "Cliente",
 };
 
 export const CORRESPONDENT_STATUS_LABELS: Record<string, string> = {
