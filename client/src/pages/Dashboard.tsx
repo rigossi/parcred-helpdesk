@@ -1,4 +1,5 @@
 import DashboardLayout from "@/components/DashboardLayout";
+import { useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -428,6 +429,11 @@ function CorrespondentDashboard() {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (user?.role === "client") navigate("/portal");
+  }, [user]);
 
   return (
     <DashboardLayout>
