@@ -878,7 +878,8 @@ export const appRouter = router({
         const ticket = await createTicket({
           title: input.subject,
           description: input.description,
-          userId: ctx.user.id,
+          openedByUserId: ctx.user.id,
+          correspondentId: null,
           departmentId: null,
           originType: "client",
           status: "open",

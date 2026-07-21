@@ -86,10 +86,10 @@ export type InsertCorrespondent = typeof correspondents.$inferInsert;
 export const tickets = mysqlTable("tickets", {
   id: int("id").autoincrement().primaryKey(),
   ticketNumber: varchar("ticketNumber", { length: 32 }).notNull().unique(), // ex: TKT-2024-001
-  correspondentId: int("correspondentId").notNull(),
-  openedByUserId: int("openedByUserId").notNull(),
+  correspondentId: int("correspondentId"),
+  openedByUserId: int("openedByUserId"),
   assignedToUserId: int("assignedToUserId"), // agente responsável
-  departmentId: int("departmentId").notNull(),
+  departmentId: int("departmentId"),
   slaPolicyId: int("slaPolicyId"),
   title: varchar("title", { length: 256 }).notNull(),
   description: text("description").notNull(),
