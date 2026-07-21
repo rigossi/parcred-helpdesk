@@ -866,18 +866,34 @@ export const appRouter = router({
       .input(z.object({
         subject: z.string().min(3),
         description: z.string().min(10),
-        departmentId: z.number().optional(),
+        attachments: z.array(z.object({
+          fileName: z.string(),
+          fileKey: z.string(),
+          fileUrl: z.string(),
+          mimeType: z.string().optional(),
+          fileSize: z.number().optional(),
+        })).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        return createTicket({
+        const ticket = await createTicket({
           subject: input.subject,
           description: input.description,
           userId: ctx.user.id,
-          departmentId: input.departmentId ?? null,
+          departmentId: null,
           originType: "client",
           status: "open",
           priority: "medium",
         });
+        if (input.attachments?.length) {
+          for (const att of input.attachments) {
+            await createTicketAttachment({
+              ticketId: ticket.id,
+              messageId: null,
+              ...att,
+            });
+          }
+        }
+        return ticket;
       }),
 
     // Ver detalhes de um chamado (cliente só vê os seus)

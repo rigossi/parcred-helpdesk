@@ -1,4 +1,5 @@
-import { useState } from "react";
+// Portal do Cliente — Novo Chamado v2
+import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -7,27 +8,71 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Paperclip, X, FileText } from "lucide-react";
 import { toast } from "sonner";
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export default function PortalNewTicket() {
   const [, navigate] = useLocation();
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true, redirectPath: "/" });
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const openTicket = trpc.clientPortal.openTicket.useMutation();
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    setPendingFiles(prev => {
+      const existing = new Set(prev.map(f => f.name + f.size));
+      return [...prev, ...files.filter(f => !existing.has(f.name + f.size))];
+    });
+    e.target.value = "";
+  }
+
+  function removeFile(index: number) {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  }
+
+  async function uploadFiles(): Promise<{ fileName: string; fileKey: string; fileUrl: string; mimeType?: string; fileSize?: number }[]> {
+    const uploaded = [];
+    for (const file of pendingFiles) {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!res.ok) throw new Error(`Falha ao enviar ${file.name}`);
+      const data = await res.json();
+      uploaded.push({ fileName: file.name, fileKey: data.key, fileUrl: data.url, mimeType: file.type || undefined, fileSize: file.size });
+    }
+    return uploaded;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setUploading(true);
     try {
-      await openTicket.mutateAsync({ subject, description });
+      let attachments: any[] = [];
+      if (pendingFiles.length > 0) {
+        attachments = await uploadFiles();
+      }
+      await openTicket.mutateAsync({ subject, description, attachments });
       toast.success("Chamado aberto com sucesso!");
       navigate("/portal");
     } catch (err: any) {
       toast.error(err?.message ?? "Erro ao abrir chamado.");
+    } finally {
+      setUploading(false);
     }
   }
+
+  const isPending = uploading || openTicket.isPending;
 
   if (loading) {
     return (
@@ -64,11 +109,12 @@ export default function PortalNewTicket() {
                   placeholder="Resumo da sua solicitação"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  disabled={openTicket.isPending}
+                  disabled={isPending}
                   required
                   minLength={3}
                 />
               </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="description">Descrição</Label>
                 <Textarea
@@ -76,25 +122,69 @@ export default function PortalNewTicket() {
                   placeholder="Descreva em detalhes o que aconteceu ou o que você precisa..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  disabled={openTicket.isPending}
+                  disabled={isPending}
                   required
                   minLength={10}
                   rows={6}
                 />
               </div>
+
+              {/* Anexos */}
+              <div className="space-y-2">
+                <Label>Anexos <span className="text-gray-400 font-normal">(opcional)</span></Label>
+
+                {pendingFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {pendingFiles.map((file, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                        <FileText className="h-4 w-4 text-gray-400 shrink-0" />
+                        <span className="text-sm text-gray-700 truncate flex-1">{file.name}</span>
+                        <span className="text-xs text-gray-400 shrink-0">{formatFileSize(file.size)}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(i)}
+                          disabled={isPending}
+                          className="text-gray-400 hover:text-red-500 transition-colors shrink-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isPending}
+                  className="flex items-center gap-2 text-sm text-primary hover:underline disabled:opacity-50"
+                >
+                  <Paperclip className="h-4 w-4" />
+                  Adicionar arquivo
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileChange}
+                  disabled={isPending}
+                />
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <Button
                   type="button"
                   variant="outline"
                   className="flex-1"
                   onClick={() => navigate("/portal")}
-                  disabled={openTicket.isPending}
+                  disabled={isPending}
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" className="flex-1" disabled={openTicket.isPending}>
-                  {openTicket.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Abrir chamado
+                <Button type="submit" className="flex-1" disabled={isPending}>
+                  {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {uploading ? "Enviando arquivos…" : "Abrir chamado"}
                 </Button>
               </div>
             </form>
