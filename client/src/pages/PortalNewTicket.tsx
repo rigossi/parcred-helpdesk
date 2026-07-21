@@ -41,7 +41,7 @@ export default function PortalNewTicket() {
     setPendingFiles(prev => prev.filter((_, i) => i !== index));
   }
 
-  async function uploadFiles(): Promise<{ fileName: string; fileKey: string; fileUrl: string; mimeType?: string; fileSize?: number }[]> {
+  async function uploadFiles() {
     const uploaded = [];
     for (const file of pendingFiles) {
       const formData = new FormData();
@@ -59,9 +59,7 @@ export default function PortalNewTicket() {
     setUploading(true);
     try {
       let attachments: any[] = [];
-      if (pendingFiles.length > 0) {
-        attachments = await uploadFiles();
-      }
+      if (pendingFiles.length > 0) attachments = await uploadFiles();
       await openTicket.mutateAsync({ subject, description, attachments });
       toast.success("Chamado aberto com sucesso!");
       navigate("/portal");
@@ -114,7 +112,6 @@ export default function PortalNewTicket() {
                   minLength={3}
                 />
               </div>
-
               <div className="space-y-1.5">
                 <Label htmlFor="description">Descrição</Label>
                 <Textarea
@@ -128,11 +125,8 @@ export default function PortalNewTicket() {
                   rows={6}
                 />
               </div>
-
-              {/* Anexos */}
               <div className="space-y-2">
                 <Label>Anexos <span className="text-gray-400 font-normal">(opcional)</span></Label>
-
                 {pendingFiles.length > 0 && (
                   <div className="space-y-2">
                     {pendingFiles.map((file, i) => (
@@ -140,48 +134,21 @@ export default function PortalNewTicket() {
                         <FileText className="h-4 w-4 text-gray-400 shrink-0" />
                         <span className="text-sm text-gray-700 truncate flex-1">{file.name}</span>
                         <span className="text-xs text-gray-400 shrink-0">{formatFileSize(file.size)}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeFile(i)}
-                          disabled={isPending}
-                          className="text-gray-400 hover:text-red-500 transition-colors shrink-0"
-                        >
+                        <button type="button" onClick={() => removeFile(i)} disabled={isPending} className="text-gray-400 hover:text-red-500 transition-colors shrink-0">
                           <X className="h-4 w-4" />
                         </button>
                       </div>
                     ))}
                   </div>
                 )}
-
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isPending}
-                  className="flex items-center gap-2 text-sm text-primary hover:underline disabled:opacity-50"
-                >
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isPending} className="flex items-center gap-2 text-sm text-primary hover:underline disabled:opacity-50">
                   <Paperclip className="h-4 w-4" />
                   Adicionar arquivo
                 </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileChange}
-                  disabled={isPending}
-                />
+                <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileChange} disabled={isPending} />
               </div>
-
               <div className="flex gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => navigate("/portal")}
-                  disabled={isPending}
-                >
-                  Cancelar
-                </Button>
+                <Button type="button" variant="outline" className="flex-1" onClick={() => navigate("/portal")} disabled={isPending}>Cancelar</Button>
                 <Button type="submit" className="flex-1" disabled={isPending}>
                   {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   {uploading ? "Enviando arquivos…" : "Abrir chamado"}
