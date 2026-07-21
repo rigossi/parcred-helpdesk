@@ -21,10 +21,11 @@ export default function PortalDashboard() {
   const { user, loading, logout } = useAuth({ redirectOnUnauthenticated: true, redirectPath: "/" });
 
   const ticketsQuery = trpc.clientPortal.myTickets.useQuery(undefined, {
-    enabled: !!user && user.role === "client",
+    enabled: !!user,
+    retry: false,
   });
 
-  if (loading || ticketsQuery.isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

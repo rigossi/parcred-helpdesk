@@ -28,12 +28,12 @@ export default function PortalTicketDetail() {
 
   const ticketQuery = trpc.clientPortal.getTicket.useQuery(
     { ticketId },
-    { enabled: !!user && user.role === "client" && !!ticketId }
+    { enabled: !!user && !!ticketId, retry: false }
   );
 
   const messagesQuery = trpc.ticketMessages.list.useQuery(
     { ticketId },
-    { enabled: !!user && user.role === "client" && !!ticketId }
+    { enabled: !!user && !!ticketId, retry: false }
   );
 
   const replyMutation = trpc.clientPortal.replyTicket.useMutation();
