@@ -83,7 +83,7 @@ export default function PortalTicketDetail() {
         <div className="flex items-center gap-3 min-w-0">
           <img src="/logo.png" alt="Parcred" className="w-8 h-auto shrink-0" />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">{ticket.subject}</p>
+            <p className="text-sm font-semibold text-gray-900 truncate">{ticket.title}</p>
             <p className="text-xs text-gray-500">{ticket.ticketNumber}</p>
           </div>
         </div>
@@ -153,4 +153,3 @@ export default function PortalTicketDetail() {
     </div>
   );
 }
-

@@ -876,13 +876,14 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const ticket = await createTicket({
-          subject: input.subject,
+          title: input.subject,
           description: input.description,
           userId: ctx.user.id,
           departmentId: null,
           originType: "client",
           status: "open",
           priority: "medium",
+          ticketType: "financial",
         });
         if (input.attachments?.length) {
           for (const att of input.attachments) {

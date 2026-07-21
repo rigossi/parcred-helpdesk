@@ -122,7 +122,7 @@ export default function PortalDashboard() {
                       <p className="text-xs text-gray-400 mb-0.5">
                         {ticket.ticketNumber} · {format(new Date(ticket.createdAt), "dd/MM/yyyy", { locale: ptBR })}
                       </p>
-                      <p className="text-sm font-medium text-gray-900 truncate">{ticket.subject}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{ticket.title}</p>
                     </div>
                     <Badge className={`${status.color} border-0 shrink-0 text-xs`}>
                       {status.label}
@@ -137,4 +137,3 @@ export default function PortalDashboard() {
     </div>
   );
 }
-
