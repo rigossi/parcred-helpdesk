@@ -152,7 +152,14 @@ export default function TicketsList() {
                       >
                         <TableCell className="font-mono text-sm font-medium text-primary">{t.ticketNumber}</TableCell>
                         <TableCell>
-                          <p className="font-medium text-foreground line-clamp-1 max-w-xs">{t.title}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-foreground line-clamp-1 max-w-xs">{t.title}</p>
+                            {t.originType === "client" ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 shrink-0">Cliente</span>
+                            ) : (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 shrink-0">Parceiro</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">{getDeptName(t.departmentId)}</TableCell>
                         <TableCell className="text-sm">{TICKET_TYPE_LABELS[t.ticketType] ?? t.ticketType}</TableCell>

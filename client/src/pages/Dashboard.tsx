@@ -206,7 +206,7 @@ function AdminDashboard() {
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-xs text-primary font-semibold w-28 shrink-0">{t.ticketNumber}</span>
                   <div>
-                    <p className="text-sm font-medium text-foreground line-clamp-1">{t.title}</p>
+                    <div className="flex items-center gap-1.5"><p className="text-sm font-medium text-foreground line-clamp-1">{t.title}</p>{t.originType === "client" ? <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 shrink-0">Cliente</span> : <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 shrink-0">Parceiro</span>}</div>
                     <p className="text-xs text-muted-foreground">{getDeptName(t.departmentId)} · {formatRelativeTime(t.createdAt)}</p>
                   </div>
                 </div>
@@ -295,7 +295,7 @@ function AgentDashboard() {
                 <div key={t.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/20 cursor-pointer" onClick={() => setLocation(`/tickets/${t.id}`)}>
                   <div>
                     <p className="text-xs font-mono text-primary font-semibold">{t.ticketNumber}</p>
-                    <p className="text-sm font-medium line-clamp-1">{t.title}</p>
+                    <div className="flex items-center gap-1.5"><p className="text-sm font-medium line-clamp-1">{t.title}</p>{t.originType === "client" ? <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 shrink-0">Cliente</span> : <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 shrink-0">Parceiro</span>}</div>
                     <p className="text-xs text-muted-foreground">{getDeptName(t.departmentId)}</p>
                   </div>
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${getPriorityClass(t.priority)}`}>
@@ -320,7 +320,7 @@ function AgentDashboard() {
                 <div key={t.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/20 cursor-pointer" onClick={() => setLocation(`/tickets/${t.id}`)}>
                   <div>
                     <p className="text-xs font-mono text-primary font-semibold">{t.ticketNumber}</p>
-                    <p className="text-sm font-medium line-clamp-1">{t.title}</p>
+                    <div className="flex items-center gap-1.5"><p className="text-sm font-medium line-clamp-1">{t.title}</p>{t.originType === "client" ? <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 shrink-0">Cliente</span> : <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 shrink-0">Parceiro</span>}</div>
                     <p className="text-xs text-muted-foreground">{formatRelativeTime(t.createdAt)}</p>
                   </div>
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${getPriorityClass(t.priority)}`}>
@@ -400,7 +400,7 @@ function CorrespondentDashboard() {
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-xs text-primary font-semibold w-28 shrink-0">{t.ticketNumber}</span>
                   <div>
-                    <p className="text-sm font-medium line-clamp-1">{t.title}</p>
+                    <div className="flex items-center gap-1.5"><p className="text-sm font-medium line-clamp-1">{t.title}</p>{t.originType === "client" ? <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 shrink-0">Cliente</span> : <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 shrink-0">Parceiro</span>}</div>
                     <p className="text-xs text-muted-foreground">{TICKET_TYPE_LABELS[t.ticketType]} · {formatRelativeTime(t.createdAt)}</p>
                   </div>
                 </div>
