@@ -17,6 +17,7 @@ import Notifications from "./pages/Notifications";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import EmailTemplates from "./pages/EmailTemplates";
+import ClientsManagement from "./pages/ClientsManagement";
 import PortalRegister from "./pages/PortalRegister";
 import PortalDashboard from "./pages/PortalDashboard";
 import PortalNewTicket from "./pages/PortalNewTicket";
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/users" component={UsersManagement} />
       <Route path="/notifications" component={Notifications} />
       <Route path="/email-templates" component={EmailTemplates} />
+      <Route path="/clients" component={ClientsManagement} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

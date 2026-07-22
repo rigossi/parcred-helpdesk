@@ -40,6 +40,7 @@ import {
   PlusCircle,
   Timer,
   Users,
+  UserCheck,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -65,6 +66,7 @@ function getMenuItems(role: string): MenuItem[] {
       { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard", section: "Principal" },
       { icon: ClipboardList, label: "Todos os Chamados", path: "/tickets", section: "Atendimento" },
       { icon: BookUser, label: "Correspondentes", path: "/correspondents", section: "Cadastros" },
+      { icon: UserCheck, label: "Clientes", path: "/clients", section: "Cadastros" },
       { icon: Building2, label: "Departamentos", path: "/departments", section: "Cadastros" },
       { icon: Timer, label: "Políticas de SLA", path: "/sla", section: "Cadastros" },
       { icon: Users, label: "Usuários", path: "/users", section: "Administração" },
