@@ -628,7 +628,6 @@ export default function TicketDetail() {
           </div>
         </div>
       </div>
-      </div>
 
       {/* Modal de Transferência */}
       <Dialog open={showTransfer} onOpenChange={setShowTransfer}>
