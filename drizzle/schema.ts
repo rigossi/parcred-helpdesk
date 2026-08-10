@@ -193,6 +193,7 @@ export const eligibleClients = mysqlTable("eligible_clients", {
   name: varchar("name", { length: 256 }).notNull(),
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 32 }),
+  active: boolean("active").default(true).notNull(),
   importedAt: timestamp("importedAt").defaultNow().notNull(),
   registeredAt: timestamp("registeredAt"), // preenchido quando o cliente se cadastra no portal
 });

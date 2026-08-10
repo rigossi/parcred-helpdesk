@@ -25,12 +25,14 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowRightLeft,
   CheckCircle2,
   Clock,
   Download,
   File,
   FileImage,
   FileText,
+  Loader2,
   Lock,
   MessageSquare,
   Paperclip,
@@ -43,6 +45,8 @@ import {
 import { useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 // ─── Helpers de arquivo ───────────────────────────────────────────────────────
 
@@ -107,6 +111,23 @@ export default function TicketDetail() {
   const [newStatus, setNewStatus] = useState("");
   const [assignTo, setAssignTo] = useState("");
   const [newPriority, setNewPriority] = useState("");
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferAgent, setTransferAgent] = useState("");
+  const [transferDept, setTransferDept] = useState("");
+  const [transferNote, setTransferNote] = useState("");
+
+  const transferMut = trpc.transfer.ticket.useMutation({
+    onSuccess: () => {
+      toast.success("Chamado transferido com sucesso!");
+      setShowTransfer(false);
+      setTransferAgent("");
+      setTransferDept("");
+      setTransferNote("");
+      ticketQuery.refetch();
+      messagesQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message ?? "Erro ao transferir chamado."),
+  });
 
   // Estado de upload de anexos na caixa de resposta
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -475,6 +496,15 @@ export default function TicketDetail() {
                   <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ações</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full h-8 text-xs"
+                    onClick={() => setShowTransfer(true)}
+                  >
+                    <ArrowRightLeft className="h-3.5 w-3.5 mr-1.5" />
+                    Transferir chamado
+                  </Button>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Agente responsável</Label>
                     <div className="flex gap-2">
@@ -598,6 +628,68 @@ export default function TicketDetail() {
           </div>
         </div>
       </div>
+      </div>
+
+      {/* Modal de Transferência */}
+      <Dialog open={showTransfer} onOpenChange={setShowTransfer}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transferir chamado {ticket?.ticketNumber}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Transferir para atendente</Label>
+              <Select value={transferAgent} onValueChange={v => { setTransferAgent(v); setTransferDept(""); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um atendente (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum (remover atribuição)</SelectItem>
+                  {staffAgents.map((a: any) => (
+                    <SelectItem key={a.id} value={String(a.id)}>{a.name ?? a.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ou transferir para departamento</Label>
+              <Select value={transferDept} onValueChange={v => { setTransferDept(v); setTransferAgent(""); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um departamento (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(departments as any[]).map((d: any) => (
+                    <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nota interna (opcional)</Label>
+              <Input
+                placeholder="Ex: Cliente solicita retorno urgente..."
+                value={transferNote}
+                onChange={e => setTransferNote(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTransfer(false)}>Cancelar</Button>
+            <Button
+              disabled={transferMut.isPending || (!transferAgent && !transferDept)}
+              onClick={() => transferMut.mutate({
+                ticketId,
+                assignedToUserId: transferAgent && transferAgent !== "none" ? Number(transferAgent) : transferAgent === "none" ? null : undefined,
+                departmentId: transferDept ? Number(transferDept) : undefined,
+                note: transferNote || undefined,
+              })}
+            >
+              {transferMut.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightLeft className="h-4 w-4 mr-2" />}
+              Transferir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

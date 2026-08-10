@@ -584,3 +584,69 @@ export async function getTicketsByUserId(userId: number) {
     .where(eq(tickets.openedByUserId, userId))
     .orderBy(desc(tickets.createdAt));
 }
+
+// ─── Eligible Clients — importação incremental ────────────────────────────────
+
+export async function importEligibleClientsIncremental(
+  data: InsertEligibleClient[]
+): Promise<{ inserted: number; updated: number; deactivated: number }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const incomingCpfs = new Set(data.map(d => d.cpf));
+  const existing = await db.select().from(eligibleClients);
+  const existingMap = new Map(existing.map(e => [e.cpf, e]));
+
+  let inserted = 0, updated = 0, deactivated = 0;
+
+  // Inserir novos / atualizar existentes
+  for (const client of data) {
+    const found = existingMap.get(client.cpf);
+    if (!found) {
+      await db.insert(eligibleClients).values({ ...client, active: true });
+      inserted++;
+    } else {
+      // Atualiza apenas campos vazios (não sobrescreve dados já preenchidos)
+      const patch: Partial<InsertEligibleClient> = { active: true };
+      if (!found.name && client.name) patch.name = client.name;
+      if (!found.email && client.email) patch.email = client.email;
+      if (!found.phone && client.phone) patch.phone = client.phone;
+      if (!found.proposta && client.proposta) patch.proposta = client.proposta;
+      await db.update(eligibleClients).set(patch).where(eq(eligibleClients.cpf, client.cpf));
+      updated++;
+    }
+  }
+
+  // Marcar como inativo quem não está na planilha
+  for (const client of existing) {
+    if (!incomingCpfs.has(client.cpf) && client.active) {
+      await db.update(eligibleClients)
+        .set({ active: false })
+        .where(eq(eligibleClients.cpf, client.cpf));
+      deactivated++;
+    }
+  }
+
+  return { inserted, updated, deactivated };
+}
+
+export async function setEligibleClientActive(id: number, active: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(eligibleClients).set({ active }).where(eq(eligibleClients.id, id));
+}
+
+// ─── Ticket transfer ──────────────────────────────────────────────────────────
+
+export async function transferTicket(
+  ticketId: number,
+  data: { assignedToUserId?: number | null; departmentId?: number | null }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(tickets).set({
+    ...data,
+    status: "open",
+    updatedAt: new Date(),
+  }).where(eq(tickets.id, ticketId));
+}

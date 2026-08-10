@@ -1,4 +1,4 @@
-// Portal do Cliente — Novo Chamado v2
+// Portal do Cliente — Novo Chamado v3
 import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, ArrowLeft, Paperclip, X, FileText } from "lucide-react";
 import { toast } from "sonner";
@@ -22,10 +23,12 @@ export default function PortalNewTicket() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true, redirectPath: "/" });
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
+  const [departmentId, setDepartmentId] = useState<string>("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const departmentsQuery = trpc.departments.list.useQuery({});
   const openTicket = trpc.clientPortal.openTicket.useMutation();
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -60,7 +63,12 @@ export default function PortalNewTicket() {
     try {
       let attachments: any[] = [];
       if (pendingFiles.length > 0) attachments = await uploadFiles();
-      await openTicket.mutateAsync({ subject, description, attachments });
+      await openTicket.mutateAsync({
+        subject,
+        description,
+        departmentId: departmentId ? Number(departmentId) : undefined,
+        attachments,
+      });
       toast.success("Chamado aberto com sucesso!");
       navigate("/portal");
     } catch (err: any) {
@@ -71,6 +79,7 @@ export default function PortalNewTicket() {
   }
 
   const isPending = uploading || openTicket.isPending;
+  const departments = (departmentsQuery.data ?? []) as any[];
 
   if (loading) {
     return (
@@ -100,6 +109,24 @@ export default function PortalNewTicket() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+
+              {/* Departamento */}
+              {departments.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>Sua dúvida é referente a assuntos: <span className="text-gray-400 font-normal">(opcional)</span></Label>
+                  <Select value={departmentId} onValueChange={setDepartmentId} disabled={isPending}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma área (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map((d: any) => (
+                        <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <Label htmlFor="subject">Assunto</Label>
                 <Input
@@ -112,6 +139,7 @@ export default function PortalNewTicket() {
                   minLength={3}
                 />
               </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="description">Descrição</Label>
                 <Textarea
@@ -125,6 +153,7 @@ export default function PortalNewTicket() {
                   rows={6}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label>Anexos <span className="text-gray-400 font-normal">(opcional)</span></Label>
                 {pendingFiles.length > 0 && (
@@ -147,6 +176,7 @@ export default function PortalNewTicket() {
                 </button>
                 <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileChange} disabled={isPending} />
               </div>
+
               <div className="flex gap-3 pt-2">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => navigate("/portal")} disabled={isPending}>Cancelar</Button>
                 <Button type="submit" className="flex-1" disabled={isPending}>

@@ -52,9 +52,12 @@ import {
   getEligibleClientByCpf,
   getEligibleClients,
   upsertEligibleClients,
+  importEligibleClientsIncremental,
+  setEligibleClientActive,
   markEligibleClientRegistered,
   updateEligibleClient,
   getTicketsByUserId,
+  transferTicket,
 } from "./db";
 
 // ─── Middleware helpers ───────────────────────────────────────────────────────
@@ -872,6 +875,7 @@ export const appRouter = router({
       .input(z.object({
         subject: z.string().min(3),
         description: z.string().min(10),
+        departmentId: z.number().optional(),
         attachments: z.array(z.object({
           fileName: z.string(),
           fileKey: z.string(),
@@ -886,7 +890,7 @@ export const appRouter = router({
           description: input.description,
           openedByUserId: ctx.user.id,
           correspondentId: null,
-          departmentId: null,
+          departmentId: input.departmentId ?? null,
           originType: "client",
           status: "open",
           priority: "medium",
@@ -962,6 +966,13 @@ export const appRouter = router({
         return updateEligibleClient(id, data);
       }),
 
+    setActive: adminProcedure
+      .input(z.object({ id: z.number(), active: z.boolean() }))
+      .mutation(async ({ input }) => {
+        await setEligibleClientActive(input.id, input.active);
+        return { success: true };
+      }),
+
     // Reset de senha do cliente pelo admin
     resetPassword: adminProcedure
       .input(z.object({
@@ -974,7 +985,25 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    // Importação de planilha via JSON (parsed no frontend)
+    // Importação incremental — insere novos, atualiza vazios, desativa removidos
+    importIncremental: adminProcedure
+      .input(z.array(z.object({
+        proposta: z.string().optional(),
+        cpf: z.string().min(11),
+        name: z.string().min(2),
+        email: z.string().email().optional(),
+        phone: z.string().optional(),
+      })))
+      .mutation(async ({ input }) => {
+        const data = input.map(row => ({
+          ...row,
+          cpf: row.cpf.replace(/[^0-9]/g, ""),
+          email: row.email?.toLowerCase().trim(),
+        }));
+        return importEligibleClientsIncremental(data);
+      }),
+
+    // Importação simples (upsert)
     import: adminProcedure
       .input(z.array(z.object({
         proposta: z.string().optional(),
@@ -991,6 +1020,57 @@ export const appRouter = router({
         }));
         const imported = await upsertEligibleClients(data);
         return { imported };
+      }),
+  }),
+
+  // ─── Transferência de chamados ────────────────────────────────────────────
+  transfer: router({
+    ticket: protectedProcedure
+      .use(({ ctx, next }) => {
+        if (!["admin", "agent"].includes(ctx.user.role)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Apenas atendentes e admins podem transferir chamados." });
+        }
+        return next({ ctx });
+      })
+      .input(z.object({
+        ticketId: z.number(),
+        assignedToUserId: z.number().nullable().optional(),
+        departmentId: z.number().nullable().optional(),
+        note: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const ticket = await getTicketById(input.ticketId);
+        if (!ticket) throw new TRPCError({ code: "NOT_FOUND" });
+
+        await transferTicket(input.ticketId, {
+          assignedToUserId: input.assignedToUserId,
+          departmentId: input.departmentId,
+        });
+
+        // Adiciona nota interna sobre a transferência
+        const noteText = input.note
+          ? `Chamado transferido por ${ctx.user.name}. Nota: ${input.note}`
+          : `Chamado transferido por ${ctx.user.name}.`;
+
+        await createTicketMessage({
+          ticketId: input.ticketId,
+          userId: ctx.user.id,
+          message: noteText,
+          isInternal: true,
+        });
+
+        // Notifica o novo atendente se foi atribuído a alguém
+        if (input.assignedToUserId) {
+          await notifyTicketEvent(
+            [input.assignedToUserId],
+            input.ticketId,
+            "ticket_assigned",
+            `Chamado transferido: ${ticket.ticketNumber}`,
+            `O chamado "${ticket.title}" foi transferido para você.`
+          );
+        }
+
+        return { success: true };
       }),
   }),
 });
