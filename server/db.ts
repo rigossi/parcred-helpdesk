@@ -593,14 +593,19 @@ export async function importEligibleClientsIncremental(
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const incomingCpfs = new Set(data.map(d => d.cpf));
+  // Deduplica a planilha — mantém o último registro por CPF
+  const deduped = new Map<string, InsertEligibleClient>();
+  for (const d of data) deduped.set(d.cpf, d);
+  const uniqueData = [...deduped.values()];
+
+  const incomingCpfs = new Set(uniqueData.map(d => d.cpf));
   const existing = await db.select().from(eligibleClients);
   const existingMap = new Map(existing.map(e => [e.cpf, e]));
 
   let inserted = 0, updated = 0, deactivated = 0;
 
   // Inserir novos / atualizar existentes
-  for (const client of data) {
+  for (const client of uniqueData) {
     const found = existingMap.get(client.cpf);
     if (!found) {
       await db.insert(eligibleClients).values({ ...client, active: true });
