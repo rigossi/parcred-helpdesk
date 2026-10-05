@@ -1,31 +1,14 @@
 /**
- * mailer.ts — Helper de envio de e-mail via SMTP (nodemailer)
+ * mailer.ts — Helper de envio de e-mail
  *
- * Credenciais lidas das variáveis de ambiente:
- *   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+ * Prioridade:
+ *   1. Resend API (RESEND_API_KEY)
+ *   2. SMTP/nodemailer (SMTP_HOST + SMTP_USER + SMTP_PASS)
  *
- * Se as variáveis não estiverem configuradas, o envio é ignorado
- * silenciosamente (não quebra o fluxo da aplicação).
+ * Se nenhum estiver configurado, o envio é ignorado silenciosamente.
  */
 
 import nodemailer from "nodemailer";
-
-function getTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT ?? "587", 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  if (!host || !user || !pass) return null;
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-    tls: { rejectUnauthorized: false },
-  });
-}
 
 export interface SendMailOptions {
   to: string | string[];
@@ -33,18 +16,54 @@ export interface SendMailOptions {
   html: string;
 }
 
-/**
- * Envia um e-mail via SMTP.
- * Retorna `true` em caso de sucesso, `false` se SMTP não configurado ou erro.
- */
-export async function sendMail(options: SendMailOptions): Promise<boolean> {
-  const transporter = getTransporter();
-  if (!transporter) {
-    console.warn("[mailer] SMTP não configurado — e-mail não enviado:", options.subject);
+async function sendViaResend(options: SendMailOptions): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return false;
+
+  const from = process.env.SMTP_FROM ?? "Parcred Suporte <onboarding@resend.dev>";
+  const to = Array.isArray(options.to) ? options.to : [options.to];
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ from, to, subject: options.subject, html: options.html }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("[mailer] Resend erro:", response.status, error);
+      return false;
+    }
+
+    console.info("[mailer] E-mail enviado via Resend para:", to, "| Assunto:", options.subject);
+    return true;
+  } catch (err) {
+    console.error("[mailer] Resend erro:", err);
     return false;
   }
+}
 
-  const from = process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "noreply@parcredbrasil.com.br";
+async function sendViaSMTP(options: SendMailOptions): Promise<boolean> {
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT ?? "587", 10);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!host || !user || !pass) return false;
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false },
+  });
+
+  const from = process.env.SMTP_FROM ?? user;
 
   try {
     await transporter.sendMail({
@@ -53,12 +72,26 @@ export async function sendMail(options: SendMailOptions): Promise<boolean> {
       subject: options.subject,
       html: options.html,
     });
-    console.info("[mailer] E-mail enviado para:", options.to, "| Assunto:", options.subject);
+    console.info("[mailer] E-mail enviado via SMTP para:", options.to, "| Assunto:", options.subject);
     return true;
   } catch (err) {
-    console.error("[mailer] Erro ao enviar e-mail:", err);
+    console.error("[mailer] SMTP erro:", err);
     return false;
   }
+}
+
+/**
+ * Envia e-mail usando Resend (preferencial) ou SMTP como fallback.
+ */
+export async function sendMail(options: SendMailOptions): Promise<boolean> {
+  if (process.env.RESEND_API_KEY) {
+    return sendViaResend(options);
+  }
+  if (process.env.SMTP_HOST) {
+    return sendViaSMTP(options);
+  }
+  console.warn("[mailer] Nenhum provedor configurado — e-mail não enviado:", options.subject);
+  return false;
 }
 
 /**
