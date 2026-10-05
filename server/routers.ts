@@ -76,44 +76,16 @@ const agentOrAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
 // ─── Helper: notificar usuários sobre ticket ──────────────────────────────────
 
 /** Envia e-mail de notificação de novo chamado para todos os admins ativos */
-async function emailAdminsNewTicket(ticket: {
-  ticketNumber: string;
-  title: string;
-  description: string;
-  openedByName: string;
-  departmentName: string;
-  priority: string;
-  openedAt: Date;
-  id: number;
-}, origin: string) {
-  try {
-    const { sendMail, replaceVars } = await import("./mailer");
-    const { getEmailTemplate } = await import("./db");
-    const template = await getEmailTemplate("new_ticket");
-    if (!template) return;
-    const allUsersForEmail = await getAllUsers();
-    const admins = allUsersForEmail.filter((u: { role: string; active: boolean; email: string }) => u.role === "admin" && u.active);
-    if (!admins.length) return;
-    const PRIORITY_LABELS: Record<string, string> = { low: "Baixa", medium: "Média", high: "Alta", critical: "Crítica" };
-    const vars = {
-      ticket_number: ticket.ticketNumber,
-      title: ticket.title,
-      description: ticket.description || "(sem descrição)",
-      opened_by: ticket.openedByName,
-      department: ticket.departmentName,
-      priority: PRIORITY_LABELS[ticket.priority] ?? ticket.priority,
-      opened_at: ticket.openedAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
-      ticket_link: `${origin}/tickets/${ticket.id}`,
-      app_name: "Parcred Help Desk",
-    };
-    const subject = replaceVars(template.subject, vars);
-    const html = replaceVars(template.bodyHtml, vars);
-    const emails = admins.map((u: { email: string }) => u.email);
-    await sendMail({ to: emails, subject, html });
-  } catch (err) {
-    console.error("[emailAdminsNewTicket] Erro ao enviar e-mail:", err);
-  }
-}
+// ─── Notificações ─────────────────────────────────────────────────────────────
+
+const PRIORITY_LABELS_EMAIL: Record<string, string> = {
+  low: "Baixa", medium: "Média", high: "Alta", critical: "Crítica",
+};
+
+const STATUS_LABELS_EMAIL: Record<string, string> = {
+  open: "Aberto", in_progress: "Em andamento", waiting_correspondent: "Aguardando",
+  resolved: "Resolvido", closed: "Encerrado",
+};
 
 async function notifyTicketEvent(
   userIds: number[],
@@ -124,6 +96,123 @@ async function notifyTicketEvent(
 ) {
   for (const userId of userIds) {
     await createNotification({ userId, ticketId, type, title, message });
+  }
+}
+
+function buildTicketEmailHtml(vars: Record<string, string>): string {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+        <tr><td style="background:#0D3B2E;padding:24px 32px">
+          <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700">Parcred Suporte</h1>
+          <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:13px">Central de Atendimento</p>
+        </td></tr>
+        <tr><td style="padding:32px">
+          <h2 style="margin:0 0 8px;color:#0D3B2E;font-size:18px">${vars.evento_titulo}</h2>
+          <p style="margin:0 0 24px;color:#6b7280;font-size:14px">${vars.evento_descricao}</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8faf9;border-radius:6px;padding:16px;margin-bottom:24px">
+            <tr><td style="padding:4px 0"><span style="color:#6b7280;font-size:13px">Chamado:</span> <strong style="color:#111827;font-size:13px">${vars.ticket_number}</strong></td></tr>
+            <tr><td style="padding:4px 0"><span style="color:#6b7280;font-size:13px">Assunto:</span> <span style="color:#111827;font-size:13px">${vars.title}</span></td></tr>
+            ${vars.status ? `<tr><td style="padding:4px 0"><span style="color:#6b7280;font-size:13px">Status:</span> <span style="color:#111827;font-size:13px">${vars.status}</span></td></tr>` : ""}
+            ${vars.priority ? `<tr><td style="padding:4px 0"><span style="color:#6b7280;font-size:13px">Prioridade:</span> <span style="color:#111827;font-size:13px">${vars.priority}</span></td></tr>` : ""}
+            ${vars.department ? `<tr><td style="padding:4px 0"><span style="color:#6b7280;font-size:13px">Departamento:</span> <span style="color:#111827;font-size:13px">${vars.department}</span></td></tr>` : ""}
+            ${vars.author ? `<tr><td style="padding:4px 0"><span style="color:#6b7280;font-size:13px">Por:</span> <span style="color:#111827;font-size:13px">${vars.author}</span></td></tr>` : ""}
+            ${vars.message_preview ? `<tr><td style="padding:8px 0 4px"><span style="color:#6b7280;font-size:13px">Mensagem:</span><br><span style="color:#374151;font-size:13px;white-space:pre-wrap">${vars.message_preview}</span></td></tr>` : ""}
+          </table>
+          <a href="${vars.ticket_link}" style="display:inline-block;background:#1A6B4A;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:700">Ver chamado</a>
+        </td></tr>
+        <tr><td style="background:#f8faf9;padding:16px 32px;border-top:1px solid #e5e7eb">
+          <p style="margin:0;color:#9ca3af;font-size:12px">Parcred Brasil · Grupo Angar · Este é um e-mail automático, não responda diretamente.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+async function sendTicketEmail(opts: {
+  to: string | string[];
+  eventoTitulo: string;
+  eventoDescricao: string;
+  ticket: { id: number; ticketNumber: string; title: string; status?: string; priority?: string; departmentName?: string };
+  author?: string;
+  messagePreview?: string;
+  origin: string;
+}) {
+  try {
+    const { sendMail } = await import("./mailer");
+    const vars = {
+      evento_titulo: opts.eventoTitulo,
+      evento_descricao: opts.eventoDescricao,
+      ticket_number: opts.ticket.ticketNumber,
+      title: opts.ticket.title,
+      status: STATUS_LABELS_EMAIL[opts.ticket.status ?? ""] ?? "",
+      priority: PRIORITY_LABELS_EMAIL[opts.ticket.priority ?? ""] ?? "",
+      department: opts.ticket.departmentName ?? "",
+      author: opts.author ?? "",
+      message_preview: opts.messagePreview ? opts.messagePreview.slice(0, 300) : "",
+      ticket_link: `${opts.origin}/tickets/${opts.ticket.id}`,
+    };
+    const html = buildTicketEmailHtml(vars);
+    await sendMail({ to: opts.to, subject: `[${opts.ticket.ticketNumber}] ${opts.eventoTitulo}`, html });
+  } catch (err) {
+    console.error("[sendTicketEmail] Erro:", err);
+  }
+}
+
+async function getTicketEmailContext(ticketId: number) {
+  const ticket = await getTicketById(ticketId);
+  if (!ticket) return null;
+  const allUsers = await getAllUsers();
+  const usersMap = new Map(allUsers.map((u: any) => [u.id, u]));
+  return { ticket, usersMap };
+}
+
+async function emailAdminsNewTicket(ticket: {
+  ticketNumber: string; title: string; description: string;
+  openedByName: string; departmentName: string; priority: string;
+  openedAt: Date; id: number;
+}, origin: string) {
+  try {
+    const { sendMail, replaceVars } = await import("./mailer");
+    const { getEmailTemplate } = await import("./db");
+    const template = await getEmailTemplate("new_ticket");
+    const allUsersForEmail = await getAllUsers();
+    const admins = allUsersForEmail.filter((u: any) => u.role === "admin" && u.active && u.email);
+    const agents = allUsersForEmail.filter((u: any) => u.role === "agent" && u.active && u.email);
+    const recipients = [...admins, ...agents];
+    if (!recipients.length) return;
+
+    if (template) {
+      const vars = {
+        ticket_number: ticket.ticketNumber, title: ticket.title,
+        description: ticket.description || "(sem descrição)", opened_by: ticket.openedByName,
+        department: ticket.departmentName,
+        priority: PRIORITY_LABELS_EMAIL[ticket.priority] ?? ticket.priority,
+        opened_at: ticket.openedAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+        ticket_link: `${origin}/tickets/${ticket.id}`, app_name: "Parcred Suporte",
+      };
+      const subject = replaceVars(template.subject, vars);
+      const html = replaceVars(template.bodyHtml, vars);
+      await sendMail({ to: recipients.map((u: any) => u.email), subject, html });
+    } else {
+      await sendTicketEmail({
+        to: recipients.map((u: any) => u.email),
+        eventoTitulo: "Novo chamado aberto",
+        eventoDescricao: `${ticket.openedByName} abriu um novo chamado.`,
+        ticket: { id: ticket.id, ticketNumber: ticket.ticketNumber, title: ticket.title, priority: ticket.priority, departmentName: ticket.departmentName },
+        author: ticket.openedByName,
+        messagePreview: ticket.description,
+        origin,
+      });
+    }
+  } catch (err) {
+    console.error("[emailAdminsNewTicket] Erro:", err);
   }
 }
 
@@ -546,8 +635,41 @@ export const appRouter = router({
         await updateTicket(id, updateData as any);
         const type = data.status === "resolved" ? "ticket_resolved" : data.status === "closed" ? "ticket_closed" : "ticket_updated";
         await notifyTicketEvent([ticket.openedByUserId], id, type, `Chamado ${ticket.ticketNumber} atualizado`, `O status do seu chamado foi atualizado para: ${data.status ?? "atualizado"}`);
+
+        // E-mail para quem abriu quando status muda para resolvido ou encerrado
+        if ((data.status === "resolved" || data.status === "closed") && ticket.openedByUserId) {
+          const ctx2 = await getTicketEmailContext(id);
+          if (ctx2) {
+            const opener = ctx2.usersMap.get(ticket.openedByUserId) as any;
+            if (opener?.email) {
+              const eventoTitulo = data.status === "resolved" ? "Chamado resolvido" : "Chamado encerrado";
+              sendTicketEmail({
+                to: opener.email,
+                eventoTitulo,
+                eventoDescricao: `Seu chamado foi marcado como ${STATUS_LABELS_EMAIL[data.status]}.`,
+                ticket: { id, ticketNumber: ticket.ticketNumber, title: ticket.title, status: data.status },
+                origin: ctx.req.headers.origin as string ?? "",
+              });
+            }
+          }
+        }
+
         if (data.assignedToUserId) {
           await notifyTicketEvent([data.assignedToUserId], id, "ticket_assigned", `Chamado atribuído: ${ticket.ticketNumber}`, `O chamado "${ticket.title}" foi atribuído a você.`);
+          // E-mail para o atendente designado
+          const ctx2 = await getTicketEmailContext(id);
+          if (ctx2) {
+            const agent = ctx2.usersMap.get(data.assignedToUserId) as any;
+            if (agent?.email) {
+              sendTicketEmail({
+                to: agent.email,
+                eventoTitulo: "Chamado atribuído a você",
+                eventoDescricao: `O chamado ${ticket.ticketNumber} foi atribuído para seu atendimento.`,
+                ticket: { id, ticketNumber: ticket.ticketNumber, title: ticket.title, priority: ticket.priority },
+                origin: ctx.req.headers.origin as string ?? "",
+              });
+            }
+          }
         }
         return getTicketById(id);
       }),
@@ -559,6 +681,18 @@ export const appRouter = router({
         if (!ticket) throw new TRPCError({ code: "NOT_FOUND" });
         await updateTicket(input.id, { assignedToUserId: input.agentId, status: "in_progress" });
         await notifyTicketEvent([input.agentId], input.id, "ticket_assigned", `Chamado atribuído: ${ticket.ticketNumber}`, `O chamado "${ticket.title}" foi atribuído a você.`);
+        // E-mail para o atendente
+        const allUsersAssign = await getAllUsers();
+        const agent = allUsersAssign.find((u: any) => u.id === input.agentId) as any;
+        if (agent?.email) {
+          sendTicketEmail({
+            to: agent.email,
+            eventoTitulo: "Chamado atribuído a você",
+            eventoDescricao: `O chamado ${ticket.ticketNumber} foi atribuído para seu atendimento.`,
+            ticket: { id: input.id, ticketNumber: ticket.ticketNumber, title: ticket.title, priority: ticket.priority },
+            origin: "",
+          });
+        }
         return { success: true };
       }),
 
@@ -614,11 +748,40 @@ export const appRouter = router({
         }
         if (!input.isInternal) {
           const notifyIds: number[] = [];
-          if (ctx.user.role === "correspondent") {
-            const allUsers = await getAllUsers();
-            notifyIds.push(...allUsers.filter((u: { role: string; id: number }) => u.role === "admin" || u.role === "agent").map((u: { id: number }) => u.id));
+          const allUsersMsg = await getAllUsers();
+          const usersMapMsg = new Map(allUsersMsg.map((u: any) => [u.id, u]));
+
+          if (ctx.user.role === "correspondent" || ctx.user.role === "client") {
+            // Parceiro ou cliente enviou mensagem — notifica admins, agents e atendente designado
+            const staffUsers = allUsersMsg.filter((u: any) => (u.role === "admin" || u.role === "agent") && u.active);
+            notifyIds.push(...staffUsers.map((u: any) => u.id));
+            const staffEmails = staffUsers.map((u: any) => u.email).filter(Boolean);
+            if (staffEmails.length) {
+              sendTicketEmail({
+                to: staffEmails,
+                eventoTitulo: "Nova mensagem no chamado",
+                eventoDescricao: `${ctx.user.name ?? "Usuário"} enviou uma mensagem.`,
+                ticket: { id: input.ticketId, ticketNumber: ticket.ticketNumber, title: ticket.title },
+                author: ctx.user.name ?? "",
+                messagePreview: input.message,
+                origin: ctx.req.headers.origin as string ?? "",
+              });
+            }
           } else {
+            // Atendente ou admin enviou mensagem — notifica quem abriu
             notifyIds.push(ticket.openedByUserId);
+            const opener = usersMapMsg.get(ticket.openedByUserId) as any;
+            if (opener?.email) {
+              sendTicketEmail({
+                to: opener.email,
+                eventoTitulo: "Nova mensagem no seu chamado",
+                eventoDescricao: `A equipe de suporte respondeu seu chamado.`,
+                ticket: { id: input.ticketId, ticketNumber: ticket.ticketNumber, title: ticket.title },
+                author: ctx.user.name ?? "Suporte",
+                messagePreview: input.message,
+                origin: ctx.req.headers.origin as string ?? "",
+              });
+            }
           }
           await notifyTicketEvent(notifyIds, input.ticketId, "ticket_updated", `Nova mensagem no chamado ${ticket.ticketNumber}`, `${ctx.user.name ?? "Usuário"} adicionou uma mensagem ao chamado "${ticket.title}"`);
         }
@@ -1059,7 +1222,7 @@ export const appRouter = router({
           isInternal: true,
         });
 
-        // Notifica o novo atendente se foi atribuído a alguém
+        // Notifica e envia e-mail para o novo atendente
         if (input.assignedToUserId) {
           await notifyTicketEvent(
             [input.assignedToUserId],
@@ -1068,6 +1231,18 @@ export const appRouter = router({
             `Chamado transferido: ${ticket.ticketNumber}`,
             `O chamado "${ticket.title}" foi transferido para você.`
           );
+          const allUsersTransfer = await getAllUsers();
+          const newAgent = allUsersTransfer.find((u: any) => u.id === input.assignedToUserId) as any;
+          if (newAgent?.email) {
+            sendTicketEmail({
+              to: newAgent.email,
+              eventoTitulo: "Chamado transferido para você",
+              eventoDescricao: `${ctx.user.name} transferiu o chamado para seu atendimento.${input.note ? ` Nota: ${input.note}` : ""}`,
+              ticket: { id: input.ticketId, ticketNumber: ticket.ticketNumber, title: ticket.title, priority: ticket.priority },
+              author: ctx.user.name ?? "",
+              origin: ctx.req.headers.origin as string ?? "",
+            });
+          }
         }
 
         return { success: true };
