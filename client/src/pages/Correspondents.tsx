@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { getCorrespondentStatusClass, CORRESPONDENT_STATUS_LABELS } from "@/lib/helpers";
 import { trpc } from "@/lib/trpc";
-import { BookUser, Eye, EyeOff, Loader2, Mail, MapPin, Pencil, Phone, Plus, Search } from "lucide-react";
+import { BookUser, Eye, EyeOff, Loader2, Mail, MapPin, Pencil, Phone, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -36,6 +36,17 @@ export default function Correspondents() {
 
   const { data: correspondents = [], refetch } = trpc.correspondents.list.useQuery();
 
+  const deleteMut = trpc.correspondents.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Correspondente excluído com sucesso!");
+      setDeleteTarget(null);
+      refetch();
+    },
+    onError: (err) => {
+      setDeleteError(err.message);
+    },
+  });
+
   const createMut = trpc.correspondents.create.useMutation({
     onSuccess: () => { refetch(); toast.success("Correspondente cadastrado com acesso ao sistema."); setOpen(false); },
     onError: (err) => toast.error(err.message ?? "Erro ao cadastrar correspondente."),
@@ -51,6 +62,8 @@ export default function Correspondents() {
   const [editForm, setEditForm] = useState<EditForm>(emptyEdit);
   const [showPassword, setShowPassword] = useState(false);
   const [search, setSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function openCreate() { setEditing(null); setCreateForm(emptyCreate); setShowPassword(false); setOpen(true); }
   function openEdit(c: any) {
@@ -194,9 +207,19 @@ export default function Correspondents() {
                     </TableCell>
                     {isAdmin && (
                       <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => { setDeleteTarget(c); setDeleteError(null); }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
@@ -351,6 +374,37 @@ export default function Correspondents() {
           </DialogContent>
         </Dialog>
       )}
+      {/* Modal de confirmação de exclusão */}
+      <Dialog open={!!deleteTarget} onOpenChange={v => !v && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir correspondente</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-700">
+              Tem certeza que deseja excluir <strong>{deleteTarget?.name}</strong>?
+              Esta ação também excluirá o usuário de acesso vinculado.
+              Os chamados históricos serão preservados.
+            </p>
+            {deleteError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-700">{deleteError}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMut.isPending}
+              onClick={() => deleteTarget && deleteMut.mutate({ id: deleteTarget.id })}
+            >
+              {deleteMut.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

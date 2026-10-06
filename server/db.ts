@@ -655,3 +655,37 @@ export async function transferTicket(
     updatedAt: new Date(),
   }).where(eq(tickets.id, ticketId));
 }
+
+// ─── Delete ───────────────────────────────────────────────────────────────────
+
+export async function getOpenTicketsByCorrespondentId(correspondentId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tickets)
+    .where(and(
+      eq(tickets.correspondentId, correspondentId),
+      inArray(tickets.status, ["open", "in_progress", "waiting_correspondent"] as any[])
+    ));
+}
+
+export async function getOpenTicketsByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tickets)
+    .where(and(
+      eq(tickets.openedByUserId, userId),
+      inArray(tickets.status, ["open", "in_progress", "waiting_correspondent"] as any[])
+    ));
+}
+
+export async function deleteCorrespondent(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(correspondents).where(eq(correspondents.id, id));
+}
+
+export async function deleteUser(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(users).where(eq(users.id, id));
+}
