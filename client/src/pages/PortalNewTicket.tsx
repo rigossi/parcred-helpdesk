@@ -136,7 +136,7 @@ export default function PortalNewTicket() {
                   onChange={(e) => setSubject(e.target.value)}
                   disabled={isPending}
                   required
-                  minLength={3}
+                  
                 />
               </div>
 
@@ -149,7 +149,7 @@ export default function PortalNewTicket() {
                   onChange={(e) => setDescription(e.target.value)}
                   disabled={isPending}
                   required
-                  minLength={10}
+                  
                   rows={6}
                 />
               </div>

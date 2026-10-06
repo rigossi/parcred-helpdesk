@@ -565,8 +565,8 @@ export const appRouter = router({
         z.object({
           correspondentId: z.number(),
           departmentId: z.number(),
-          title: z.string().min(5),
-          description: z.string().min(10),
+          title: z.string().min(1),
+          description: z.string().min(1),
           // tipo e prioridade definidos pelo agente após abertura
           ticketType: z.enum(["technical", "commercial", "financial"]).optional(),
           priority: z.enum(["low", "medium", "high", "critical"]).optional(),
@@ -1036,8 +1036,8 @@ export const appRouter = router({
         return next({ ctx });
       })
       .input(z.object({
-        subject: z.string().min(3),
-        description: z.string().min(10),
+        subject: z.string().min(1),
+        description: z.string().min(1),
         departmentId: z.number().optional(),
         attachments: z.array(z.object({
           fileName: z.string(),
