@@ -1069,6 +1069,24 @@ export const appRouter = router({
             });
           }
         }
+
+        // Notifica admins e atendentes
+        const allUsersPortal = await getAllUsers();
+        const staffIds = allUsersPortal.filter((u: any) => (u.role === "admin" || u.role === "agent") && u.active).map((u: any) => u.id);
+        await notifyTicketEvent(staffIds, ticket.id, "ticket_opened", `Novo chamado: ${ticket.ticketNumber}`, `${ctx.user.name ?? "Cliente"} abriu o chamado "${ticket.title}"`);
+
+        const dept = input.departmentId ? await getDepartmentById(input.departmentId) : null;
+        emailAdminsNewTicket({
+          ticketNumber: ticket.ticketNumber,
+          title: ticket.title,
+          description: input.description,
+          openedByName: ctx.user.name ?? ctx.user.email,
+          departmentName: dept?.name ?? "N/A",
+          priority: "medium",
+          openedAt: new Date(),
+          id: ticket.id,
+        }, ctx.req.headers.origin as string ?? "https://suporte.parcredbrasil.com.br").catch(console.error);
+
         return ticket;
       }),
 
