@@ -463,6 +463,29 @@ export const appRouter = router({
         }
         return updateCorrespondent(id, { ...data, ...(email ? { email } : {}) } as any);
       }),
+
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const { getOpenTicketsByCorrespondentId, deleteCorrespondent, deleteUser } = await import("./db");
+        const correspondent = await getCorrespondentById(input.id);
+        if (!correspondent) throw new TRPCError({ code: "NOT_FOUND", message: "Correspondente não encontrado." });
+
+        const openTickets = await getOpenTicketsByCorrespondentId(input.id);
+        if (openTickets.length > 0) {
+          const numbers = openTickets.map((t: any) => t.ticketNumber).join(", ");
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: `Não é possível excluir o correspondente pois existem chamados em aberto: ${numbers}. Encerre os chamados antes de excluir.`,
+          });
+        }
+
+        await deleteCorrespondent(input.id);
+        if (correspondent.userId) {
+          await deleteUser(correspondent.userId);
+        }
+        return { success: true };
+      }),
   }),
 
   // ─── Tickets ────────────────────────────────────────────────────────────────
@@ -904,6 +927,37 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         await setUserDepartmentPermissions(input.userId, input.departmentIds);
+        return { success: true };
+      }),
+
+    // Excluir usuário — bloqueia se tiver chamados em aberto
+    deleteUser: adminProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.userId === ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode excluir seu próprio usuário." });
+        }
+        const { getOpenTicketsByUserId, deleteUser: deleteUserFn } = await import("./db");
+        const openTickets = await getOpenTicketsByUserId(input.userId);
+        if (openTickets.length > 0) {
+          const numbers = openTickets.map((t: any) => t.ticketNumber).join(", ");
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: `Não é possível excluir o usuário pois existem chamados em aberto: ${numbers}. Encerre os chamados antes de excluir.`,
+          });
+        }
+        await deleteUserFn(input.userId);
+        return { success: true };
+      }),
+
+    // Desativar usuário (preserva histórico)
+    deactivateUser: adminProcedure
+      .input(z.object({ userId: z.number(), active: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.userId === ctx.user.id && !input.active) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode desativar seu próprio usuário." });
+        }
+        await updateUser(input.userId, { active: input.active });
         return { success: true };
       }),
 

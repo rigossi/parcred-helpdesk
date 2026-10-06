@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { formatDateTime, ROLE_LABELS } from "@/lib/helpers";
 import { trpc } from "@/lib/trpc";
-import { Eye, EyeOff, Loader2, Pencil, Plus, Shield, ShieldCheck, User, Users, Building2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Pencil, Plus, Shield, ShieldCheck, User, Users, Building2, Trash2, PowerOff } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -72,6 +72,23 @@ export default function UsersManagement() {
     onError: (err) => toast.error(err.message ?? "Erro ao atualizar usuário."),
   });
 
+  const deleteUserMut = trpc.admin.deleteUser.useMutation({
+    onSuccess: () => {
+      toast.success("Usuário excluído com sucesso!");
+      setDeleteTarget(null);
+      refetch();
+    },
+    onError: (err) => setDeleteError(err.message),
+  });
+
+  const deactivateUserMut = trpc.admin.deactivateUser.useMutation({
+    onSuccess: (_, vars) => {
+      toast.success(vars.active ? "Usuário reativado!" : "Usuário desativado!");
+      refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   const setDeptPermsMut = trpc.admin.setUserDepartmentPermissions.useMutation({
     onSuccess: () => {
       utils.admin.getUserDepartmentPermissions.invalidate();
@@ -82,6 +99,8 @@ export default function UsersManagement() {
 
   // ── Create dialog state ────────────────────────────────────────────────────
 
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createForm, setCreateForm] = useState(EMPTY_CREATE_FORM);
   const [showCreatePassword, setShowCreatePassword] = useState(false);
@@ -277,15 +296,37 @@ export default function UsersManagement() {
                       </Select>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEditDialog(u)}
-                        title="Editar usuário"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openEditDialog(u)}
+                          title="Editar usuário"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`h-8 w-8 ${u.active ? "text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50" : "text-green-600 hover:text-green-700 hover:bg-green-50"}`}
+                          onClick={() => deactivateUserMut.mutate({ userId: u.id, active: !u.active })}
+                          title={u.active ? "Desativar usuário" : "Reativar usuário"}
+                          disabled={u.id === user?.id}
+                        >
+                          <PowerOff className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => { setDeleteTarget(u); setDeleteError(null); }}
+                          title="Excluir usuário"
+                          disabled={u.id === user?.id}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -513,6 +554,36 @@ export default function UsersManagement() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      {/* Modal de confirmação de exclusão */}
+      <Dialog open={!!deleteTarget} onOpenChange={v => !v && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir usuário</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-700">
+              Tem certeza que deseja excluir <strong>{deleteTarget?.name}</strong>?
+              Os registros históricos (chamados, mensagens) serão preservados.
+            </p>
+            {deleteError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-700">{deleteError}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteUserMut.isPending}
+              onClick={() => deleteTarget && deleteUserMut.mutate({ userId: deleteTarget.id })}
+            >
+              {deleteUserMut.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Excluir
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </DashboardLayout>
